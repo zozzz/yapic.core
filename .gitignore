@@ -1,0 +1,8 @@
+*.pdb
+*.egg-info
+*.pyc
+/dist
+/build
+.cache
+.testenv
+.vscode
