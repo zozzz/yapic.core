@@ -1,6 +1,9 @@
 *.pdb
 *.egg-info
 *.pyc
+*.i
+*.asm
+.eggs
 /dist
 /build
 .cache

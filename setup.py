@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 from pathlib import Path
 from glob import glob
 from setuptools import setup, Command, Extension
@@ -39,7 +40,8 @@ package_data = ["include/**/*.hpp"]
 
 class PyTest(TestCommand):
     user_options = [
-        ("pytest-args=", "a", "Arguments to pass to pytest")
+        ("pytest-args=", "a", "Arguments to pass to pytest"),
+        ("file=", "f", "File to run"),
     ]
 
     ext_modules = [
@@ -54,9 +56,20 @@ class PyTest(TestCommand):
 
     def initialize_options(self):
         super().initialize_options()
-        self.pytest_args = ""
+        self.pytest_args = "-x -s"
+        self.file = None
+
+    def finalize_options(self):
+        super().finalize_options()
+        if self.file:
+            self.pytest_args += " " + self.file.replace("\\", "/")
 
     def run(self):
+        installed_dists = self.install_dists(self.distribution)
+        for dp in map(lambda x: x.location, installed_dists):
+            if dp not in sys.path:
+                sys.path.insert(0, dp)
+
         self._init_exts()
         self.run_command('build_ext')
 
@@ -86,15 +99,31 @@ class PyTest(TestCommand):
         if not self.distribution.ext_modules:
             self.distribution.ext_modules = []
         self.distribution.packages += ["yapic.cpp.test"]
-        extra_compile_args = ["/Zi"]  # debug symbols
-        # extra_compile_args = ["/FC", Path(__file__).absolute().path.joinpath("src", "yapic", "")]
-        # extra_compile_args.append("/P") # Preprocessor outpout
+        define_macros = {}
 
-        # /FA Assembly code; .asm
-        # /FAc Machine and assembly code; .cod
-        # /FAs Source and assembly code; .asm
-        # /FAcs Machine, source, and assembly code; .cod
-        # extra_compile_args.append("/FAs")
+        if sys.platform == "win32":
+            define_macros["UNICODE"] = 1
+            undef_macros = []
+            extra_compile_args = []
+            # extra_compile_args = ["/FC", Path(__file__).absolute().path.joinpath("src", "yapic", "")]
+            # extra_compile_args.append("/P")  # Preprocessor outpout
+
+            # /FA Assembly code; .asm
+            # /FAc Machine and assembly code; .cod
+            # /FAs Source and assembly code; .asm
+            # /FAcs Machine, source, and assembly code; .cod
+            extra_compile_args.append("/FAs")
+
+            if sys.executable.endswith("python_d.exe"):
+                define_macros["_DEBUG"] = 1
+                undef_macros.append("NDEBUG")
+                extra_compile_args.append("/MTd")
+                extra_compile_args.append("/Zi")
+                # extra_compile_args.append("/MDd")
+            else:
+                pass
+                # extra_compile_args.append("/MT")
+                # extra_compile_args.append("/MD")
 
         depends = glob("src/yapic/cpp/include/**/*.hpp")
         for m in self.ext_modules:
@@ -106,7 +135,8 @@ class PyTest(TestCommand):
                     name="yapic.cpp.test." + os.path.splitext(os.path.basename(m))[0],
                     sources=[m],
                     include_dirs=["src/yapic/cpp/include"],
-                    undef_macros=["NDEBUG"],
+                    undef_macros=undef_macros,
+                    define_macros=list(define_macros.items()),
                     extra_compile_args=ecp,
                     language="c++",
                     depends=depends
@@ -119,7 +149,7 @@ dist = setup(
     packages=["yapic.cpp"],
     package_dir={"yapic.cpp": "src/yapic/cpp"},
     package_data={"yapic.cpp": package_data},
-    tests_require=["pytest"],
+    tests_require=["pytest", "pytest-benchmark"],
     python_requires=">=3.5",
     cmdclass={"test": PyTest}
 

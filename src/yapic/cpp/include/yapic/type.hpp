@@ -316,7 +316,7 @@ namespace Yapic {
 			PyObject* test;
 
 			static inline void New() {
-				printf("%s::New\n", Self::Name);
+				printf("%s::New\n", Self::Name());
 			}
 	};
 
@@ -325,7 +325,7 @@ namespace Yapic {
 			PyObject* test2;
 
 			static inline void New() {
-				printf("%s::New\n", Self::Name);
+				printf("%s::New\n", Self::Name());
 				Super::New();
 			}
 	};

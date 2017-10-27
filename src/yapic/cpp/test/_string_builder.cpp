@@ -53,17 +53,16 @@ public:
 		builder.AppendAscii('@');
 		builder.AppendAscii('Y');
 		builder.AppendAscii('@');
-		if (!builder.AppendString(str)) {
+		if (!builder.AppendStringSafe(str)) {
 			return NULL;
 		}
-		if (!builder.AppendString("@X@")) {
+		if (!builder.AppendStringSafe("@X@")) {
 			return NULL;
 		}
 		return builder.ToPython();
 	}
 
 	static PyObject* bytes_builder(PyObject* module, PyObject* str) {
-		printf("bytes_builder\n");
 		if (!str || (!PyUnicode_CheckExact(str) && !PyBytes_CheckExact(str))) {
 			PyErr_BadInternalCall();
 			return NULL;
@@ -74,36 +73,47 @@ public:
 			return NULL;
 		}
 
-		printf("SIZE OK\n");
-
 		builder.AppendAscii('@');
 		builder.AppendAscii('Y');
 		builder.AppendAscii('@');
 
-		printf("ASCII OK\n");
-
 		if (PyUnicode_CheckExact(str)) {
-			if (!builder.AppendString(str)) {
-				printf("STRING OK\n");
+			if (!builder.AppendStringSafe(str)) {
 				return NULL;
 			}
 		} else if (PyBytes_CheckExact(str)) {
-			if (!builder.AppendBytes(str)) {
-				printf("BYTES OK\n");
+			if (!builder.AppendBytesSafe(str)) {
 				return NULL;
 			}
 		}
 
-		if (!builder.AppendString("@X@")) {
+		if (!builder.AppendStringSafe("@X@")) {
+			return NULL;
+		}
+
+		if (!builder.AppendCharSafe(0x2600)) { // ☀
 			return NULL;
 		}
 		return builder.ToPython();
+	}
+
+	static PyObject* unicode_to_bytes(PyObject* module, PyObject* str) {
+		if (!str || !PyUnicode_CheckExact(str)) {
+			PyErr_BadInternalCall();
+			return NULL;
+		}
+		Utf8BytesBuilder builder;
+		if (builder.AppendStringSafe(str)) {
+			return builder.ToPython();
+		}
+		return NULL;
 	}
 
 	Yapic_METHODS_BEGIN
 		Yapic_Method(ascii_builder, METH_O, NULL)
 		Yapic_Method(unicode_builder, METH_O, NULL)
 		Yapic_Method(bytes_builder, METH_O, NULL)
+		Yapic_Method(unicode_to_bytes, METH_O, NULL)
 	Yapic_METHODS_END
 };
 

@@ -12,8 +12,10 @@ def test_ascii(value):
 
 
 def test_ascii_bad():
-    with pytest.raises(UnicodeEncodeError) as ex:
+    with pytest.raises(UnicodeError) as ex:
         _string_builder.ascii_builder("ერთადერთი")
+
+    ex.match("The given string must be ascii encoded.")
 
 
 @pytest.mark.parametrize("value", [
@@ -28,13 +30,13 @@ def test_unicode(value):
 
 
 @pytest.mark.parametrize("value", [
-    # "Hello World",
+    "Hello World",
     "Árvíz".encode(),
-    # "VeryLong".encode() * 100,
-    # "ერთადერთი".encode(),
-    # "ერთადერთი".encode() * 100,
-    # "ერთადერთი",
+    "VeryLong".encode() * 100,
+    "ერთადერთი".encode(),
+    "ერთადერთი".encode() * 100,
+    "ერთადერთი",
 ])
 def test_bytes(value):
     assert _string_builder.bytes_builder(value) \
-        == "@Y@".encode() + (value.encode() if isinstance(value, str) else value) + "@X@".encode()
+        == "@Y@".encode() + (value.encode() if isinstance(value, str) else value) + "@X@☀".encode()
