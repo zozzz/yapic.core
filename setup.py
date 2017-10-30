@@ -112,7 +112,7 @@ class PyTest(TestCommand):
             # /FAc Machine and assembly code; .cod
             # /FAs Source and assembly code; .asm
             # /FAcs Machine, source, and assembly code; .cod
-            extra_compile_args.append("/FAs")
+            # extra_compile_args.append("/FAs")
 
             if sys.executable.endswith("python_d.exe"):
                 define_macros["_DEBUG"] = 1

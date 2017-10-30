@@ -22,7 +22,7 @@ public:
 
 		AsciiBuilder builder;
 		size_t strSize = PyUnicode_GET_LENGTH(str);
-		if (!builder.Memory().EnsureSize(strSize + 6)) {
+		if (!builder.EnsureSize(strSize + 6)) {
 			return NULL;
 		}
 
@@ -46,7 +46,7 @@ public:
 
 		UnicodeBuilder builder;
 		size_t strSize = PyUnicode_GET_LENGTH(str);
-		if (!builder.Memory().EnsureSize(strSize + 6)) {
+		if (!builder.EnsureSize(strSize + 6)) {
 			return NULL;
 		}
 
@@ -69,7 +69,7 @@ public:
 		}
 
 		Utf8BytesBuilder builder;
-		if (!builder.Memory().EnsureSize(6)) {
+		if (!builder.EnsureSize(6)) {
 			return NULL;
 		}
 

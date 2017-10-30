@@ -28,7 +28,7 @@ class _Memory {
 public:
 	using DT = _DT;
 
-	inline _Memory(): _heap(NULL), _cursor(_initial), _end(_initial + InitialSize) {
+	inline _Memory(): _heap(NULL), cursor(_initial), _end(_initial + InitialSize) {
 	}
 
 	inline ~_Memory() {
@@ -54,15 +54,16 @@ public:
 		}
 	}
 
-	inline void Reset() { _cursor = const_cast<DT*>(Begin()); };
+	inline void Reset() { cursor = const_cast<DT*>(Begin()); };
 	inline size_t Size() const { return _end - const_cast<DT*>(Begin()); };
-	inline size_t UsedSize() const { return _cursor - const_cast<DT*>(Begin()); };
-	inline size_t FreeSize() const { return _end - _cursor; };
+	inline size_t UsedSize() const { return cursor - const_cast<DT*>(Begin()); };
+	inline size_t FreeSize() const { return _end - cursor; };
 	inline const DT* Begin() const { return (_heap ? _heap : _initial); };
+	inline const DT* End() const { return _end; };
+	inline PyObject* Object() const { return NULL; }
 
 	bool Resize(size_t newSize) {
 		size_t pos = UsedSize();
-
 		if (_heap == NULL) {
 			_heap = (DT*) PyMem_Malloc(newSize * sizeof(DT));
 			if (_heap == NULL) {
@@ -78,14 +79,82 @@ public:
 			}
 		}
 		_end = _heap + newSize;
-		_cursor = _heap + pos;
+		cursor = _heap + pos;
 		return true;
 	}
 
-	DT* _heap;
-	DT* _cursor;
+	DT* cursor;
+private:
 	DT* _end;
+	DT* _heap;
 	DT _initial[InitialSize];
+};
+
+
+class _BytesMemory {
+public:
+	using DT = char;
+
+	inline _BytesMemory(): _bytes(NULL), cursor(NULL), _end(NULL) {}
+
+	inline ~_BytesMemory() {
+		Py_XDECREF(_bytes);
+	}
+
+	inline bool EnsureSize(Py_ssize_t required) {
+		if (_bytes == NULL) {
+			return Resize(required);
+		} else {
+			Py_ssize_t free = FreeSize();
+			if (free < required) {
+				#ifdef NDEBUG
+					free = Size();
+					do {
+						free <<= 1;
+					} while (free < required);
+				#else
+					free = Size() + (required - FreeSize());
+				#endif
+				return Resize(free);
+			} else {
+				return true;
+			}
+		}
+	}
+
+	inline void Reset() {
+		Py_CLEAR(_bytes);
+		cursor = _end = NULL;
+	};
+	inline Py_ssize_t Size() const { return _end - const_cast<DT*>(Begin()); };
+	inline Py_ssize_t UsedSize() const { return cursor - const_cast<DT*>(Begin()); };
+	inline Py_ssize_t FreeSize() const { return _end - cursor; };
+	inline const DT* Begin() const { return _bytes ? reinterpret_cast<DT*>(((PyBytesObject*) _bytes)->ob_sval) : NULL; };
+	inline const DT* End() const { return _end; };
+	inline PyObject* Object() const { return _bytes; }
+
+	bool Resize(Py_ssize_t newSize) {
+		Py_ssize_t pos = 0;
+		if (_bytes == NULL) {
+			_bytes = PyBytes_FromStringAndSize(NULL, newSize);
+			if (_bytes == NULL) {
+				return false;
+			}
+		} else {
+			pos = UsedSize();
+			if (_PyBytes_Resize(&_bytes, newSize) != 0) {
+				return false;
+			}
+		}
+		cursor = ((PyBytesObject*) _bytes)->ob_sval + pos;
+		_end = ((PyBytesObject*) _bytes)->ob_sval + newSize;
+		return true;
+	}
+
+	DT* cursor;
+private:
+	DT* _end;
+	PyObject* _bytes;
 };
 
 
@@ -198,6 +267,11 @@ struct _StringTraits {
 		return str;
 	}
 
+	template<typename Memory, typename Mc>
+	static inline PyObject* ToPython(Memory& mem, Mc maxchar) {
+		return NewFromSizeAndData(mem.Begin(), mem.UsedSize(), maxchar);
+	}
+
 	template<typename Input>
 	static inline Py_ssize_t EncodedCharSize(Input ch) {
 		assert(sizeof(Storage) >= sizeof(Input));
@@ -229,7 +303,49 @@ namespace _Encoding {
 
 		template<typename Storage, typename Input>
 		static inline void Append(Storage*& into, Input ch) {
-			// printf("Utf8::Append ch=%lu, size=%d\n", ch, EncodedCharSize(ch));
+			// printf("Utf8::Append ch=%lu, size=%d, bsr=%d\n", ch, EncodedCharSize(ch), bsI);
+
+
+			if (ch <= 0x80) {
+				into[0] = ch;
+				into += 1;
+			} else if (ch < 0x800) {
+				into[1] = 0x80 | (ch & 0x3F);
+				into[0] = 0xC0 | (ch >> 6);
+				into += 2;
+			} else if (sizeof(Input) >= 2 && ch < 0x10000) {
+				into[2] = 0x80 | (ch & 0x3F);
+				into[1] = 0x80 | ((ch >> 6) & 0x3F);
+				into[0] = 0xE0 | (ch >> 12);
+				into += 3;
+			} else if (sizeof(Input) >= 4) {
+				assert(ch <= UPPER_4B_CHAR);
+				into[3] = 0x80 | (ch & 0x3F);
+				into[2] = 0x80 | ((ch >> 6) & 0x3F);
+				into[1] = 0x80 | ((ch >> 12) & 0x3F);
+				into[0] = 0xF0 | (ch >> 18);
+				into += 4;
+			}
+
+			// if (ch > 127) {
+			// 	if (ch < 0x800) {
+			// 		into[0] = 0xC0 | ((ch >> 6) & 0x1F);
+			// 		into += 1;
+			// 	} else if (sizeof(Input) >= 2 && ch < 0x10000) {
+			// 		into[0] = 0xE0 | ((ch >> 12) & 0x0F);
+			// 		into[1] = 0x80 | ((ch >> 6) & 0x3F);
+			// 		into += 2;
+			// 	} else if (sizeof(Input) >= 4) {
+			// 		assert(ch <= UPPER_4B_CHAR);
+			// 		into[0] = 0xF0 | ((ch >> 18) & 0x07);
+			// 		into[1] = 0x80 | ((ch >> 12) & 0x3F);
+			// 		into[2] = 0x80 | ((ch >> 6) & 0x3F);
+			// 		into += 3;
+			// 	}
+			// 	ch = 0x80 | (ch & 0x3F);
+			// }
+			// into[0] = ch;
+			// into += 1;
 
 			// if (ch < 0x80) {
 			// 	*(into++) = ch;
@@ -248,32 +364,32 @@ namespace _Encoding {
 			// 	*(into++) = (0x80 | (ch & 0x3F));
 			// }
 
-			if (ch <= 127) {
-				into[0] = ch;
-				into += 1;
-			} else if (ch < 0x800) {
-				into[1] = 0x80 | (ch & 0x3F);
-				ch >>= 6;
-				into[0] = 0xC0 | (ch & 0x1F);
-				into += 2;
-			} else if (sizeof(Input) >= 2 && ch < 0x10000) {
-				into[2] = 0x80 | (ch & 0x3F);
-				ch >>= 6;
-				into[1] = 0x80 | (ch & 0x3F);
-				ch >>= 6;
-				into[0] = 0xE0 | ((ch >> 6) & 0x0F);
-				into += 3;
-			} else if (sizeof(Input) >= 4) {
-				assert(ch <= UPPER_4B_CHAR);
-				into[3] = 0x80 | (ch & 0x3F);
-				ch >>= 6;
-				into[2] = 0x80 | (ch & 0x3F);
-				ch >>= 6;
-				into[1] = 0x80 | (ch & 0x3F);
-				ch >>= 6;
-				into[0] = 0xF0 | (ch & 0x07);
-				into += 4;
-			}
+			// if (ch <= 127) {
+			// 	into[0] = ch;
+			// 	into += 1;
+			// } else if (ch < 0x800) {
+			// 	into[1] = 0x80 | (ch & 0x3F);
+			// 	ch >>= 6;
+			// 	into[0] = 0xC0 | (ch & 0x1F);
+			// 	into += 2;
+			// } else if (sizeof(Input) >= 2 && ch < 0x10000) {
+			// 	into[2] = 0x80 | (ch & 0x3F);
+			// 	ch >>= 6;
+			// 	into[1] = 0x80 | (ch & 0x3F);
+			// 	ch >>= 6;
+			// 	into[0] = 0xE0 | (ch & 0x0F);
+			// 	into += 3;
+			// } else if (sizeof(Input) >= 4) {
+			// 	assert(ch <= UPPER_4B_CHAR);
+			// 	into[3] = 0x80 | (ch & 0x3F);
+			// 	ch >>= 6;
+			// 	into[2] = 0x80 | (ch & 0x3F);
+			// 	ch >>= 6;
+			// 	into[1] = 0x80 | (ch & 0x3F);
+			// 	ch >>= 6;
+			// 	into[0] = 0xF0 | (ch & 0x07);
+			// 	into += 4;
+			// }
 
 
 			// switch (EncodedCharSize(ch)) {
@@ -311,16 +427,24 @@ namespace _Encoding {
 		}
 
 		template<typename Storage>
-		static void AppendString(Storage*& into, PyObject* obj) {
+		static inline void AppendString(Storage*& into, PyObject* obj) {
 			switch (PyUnicode_KIND(obj)) {
 				case PyUnicode_1BYTE_KIND:
-					return __AppendString(into, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+					if (PyUnicode_IS_ASCII(obj) && sizeof(Storage) == 1) {
+						CopyStrBytes(into, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+						into += PyUnicode_GET_LENGTH(obj);
+					} else {
+						__AppendString(into, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+					}
+				break;
 
 				case PyUnicode_2BYTE_KIND:
-					return __AppendString(into, PyUnicode_2BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+					__AppendString(into, PyUnicode_2BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+				break;
 
 				case PyUnicode_4BYTE_KIND:
-					return __AppendString(into, PyUnicode_4BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+					__AppendString(into, PyUnicode_4BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+				break;
 			}
 		}
 
@@ -330,7 +454,7 @@ namespace _Encoding {
 			while (data < end) {
 				Append(into, *(data++));
 			}
-			// for (Py_ssize_t i=0 ; i<size ; ) {
+			// for (int i=0 ; i<size ;) {
 			// 	Append(into, data[i++]);
 			// }
 		}
@@ -476,12 +600,6 @@ struct _ByteTraits {
 		assert(obj != NULL);
 		assert(PyUnicode_CheckExact(obj));
 		Encoding::AppendString(into, obj);
-		// Py_ssize_t size;
-		// const unsigned char* data = Encoding::UnicodeToBytes(obj, size);
-		// if (data == NULL) {
-		// 	return false;
-		// }
-		// __append(into, data, size);
 		return true;
 	}
 
@@ -502,17 +620,17 @@ struct _ByteTraits {
 	static inline void UpdateMaxchar(Mc& maxchar, Input ch) {
 	}
 
-	template<typename Mc>
-	static inline PyObject* NewFromSize(size_t size, Mc maxchar) {
-		// little hacky
-		PyObject* bytes = PyMem_Malloc(); // TODO: ...
-		return NULL;
-	}
+	// template<typename Mc>
+	// static inline PyObject* NewFromSize(size_t size, Mc maxchar) {
+	// 	// little hacky
+	// 	PyObject* bytes = PyMem_Malloc(); // TODO: ...
+	// 	return NULL;
+	// }
 
-	template<typename Mc>
-	static inline PyObject* NewFromSizeAndData(const Storage* data, size_t size, Mc maxchar) {
-		return PyBytes_FromStringAndSize(data, size);
-	}
+	// template<typename Mc>
+	// static inline PyObject* NewFromSizeAndData(const Storage* data, size_t size, Mc maxchar) {
+	// 	return PyBytes_FromStringAndSize(data, size);
+	// }
 
 	template<typename Input>
 	static inline Py_ssize_t EncodedCharSize(Input ch) {
@@ -525,6 +643,17 @@ struct _ByteTraits {
 
 	static inline Py_ssize_t RequiredSizeForBytes(PyObject* obj) {
 		return Encoding::RequiredSizeForBytes(obj);
+	}
+
+	template<typename Memory, typename Mc>
+	static inline PyObject* ToPython(Memory& mem, Mc maxchar) {
+		if (mem.Resize(mem.UsedSize())) {
+			PyObject* res = mem.Object();
+			Py_INCREF(res);
+			return res;
+		} else {
+			return NULL;
+		}
 	}
 };
 
@@ -539,23 +668,23 @@ public:
 
 	template<typename Input>
 	inline void AppendAscii(Input ch) {
-		assert(_memory._cursor < _memory._end);
-		Trait::AppendAscii(_memory._cursor, ch);
+		assert(_memory.cursor < _memory.End());
+		Trait::AppendAscii(_memory.cursor, ch);
 	}
 
 	template<typename Input>
 	inline void AppendChar(Input ch) {
-		assert(_memory._cursor < _memory._end);
+		assert(_memory.cursor < _memory.End());
 		Trait::UpdateMaxchar(_maxchar, ch);
-		Trait::AppendChar(_memory._cursor, ch);
+		Trait::AppendChar(_memory.cursor, ch);
 	}
 
 	template<typename Input>
 	inline bool AppendCharSafe(Input ch) {
 		if (EnsureSize(Trait::EncodedCharSize(ch))) {
-			assert(_memory._cursor < _memory._end);
+			assert(_memory.cursor < _memory.End());
 			Trait::UpdateMaxchar(_maxchar, ch);
-			Trait::AppendChar(_memory._cursor, ch);
+			Trait::AppendChar(_memory.cursor, ch);
 			return true;
 		} else {
 			return false;
@@ -570,8 +699,8 @@ public:
 	inline bool AppendString(const char* str, size_t size) {
 		assert(str != NULL);
 		assert(size >= 0);
-		CopyStrBytes(_memory._cursor, str, size);
-		_memory._cursor += size;
+		CopyStrBytes(_memory.cursor, str, size);
+		_memory.cursor += size;
 		return true;
 	}
 
@@ -589,7 +718,7 @@ public:
 	inline bool AppendString(PyObject* obj) {
 		assert(obj != NULL);
 		assert(PyUnicode_CheckExact(obj));
-		return Trait::AppendString(_memory._cursor, obj, _maxchar);
+		return Trait::AppendString(_memory.cursor, obj, _maxchar);
 	}
 
 	inline bool AppendStringSafe(PyObject* obj) {
@@ -601,7 +730,7 @@ public:
 	inline bool AppendBytes(PyObject* obj) {
 		assert(obj != NULL);
 		assert(PyBytes_CheckExact(obj));
-		return Trait::AppendBytes(_memory._cursor, obj, _maxchar);
+		return Trait::AppendBytes(_memory.cursor, obj, _maxchar);
 	}
 
 	inline bool AppendBytesSafe(PyObject* obj) {
@@ -622,12 +751,12 @@ public:
 		}
 	}
 
-	inline _Mem& Memory() { return _memory; };
-
 	inline PyObject* ToPython() {
-		// printf("ToPython cursor=%p end=%p\n", _memory._cursor, _memory._end);
-		assert(_memory._cursor <= _memory._end);
-		return Trait::NewFromSizeAndData(_memory.Begin(), _memory.UsedSize(), _maxchar);
+		// printf("ToPython cursor=%p end=%p\n", _memory.cursor, _memory.End());
+		assert(_memory.cursor <= _memory.End());
+		PyObject* res = Trait::ToPython(_memory, _maxchar);
+		_memory.Reset();
+		return res;
 	}
 private:
 	_Mem _memory;
@@ -660,7 +789,7 @@ using Utf8Bytes = _ByteTraits<char, _Encoding::_Utf8>;
 using RawBytes = _ByteTraits<char, _Encoding::_Raw>;
 
 template<typename _Trait, int size>
-using BytesBuilder = _StringBuilder<_Trait, _Memory<char, size>>;
+using BytesBuilder = _StringBuilder<_Trait, _BytesMemory>;
 
 template<int size>
 using RawBytesBuilder = BytesBuilder<RawBytes, size>;
