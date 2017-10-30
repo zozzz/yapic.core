@@ -390,47 +390,13 @@ namespace _Encoding {
 			// 	into[0] = 0xF0 | (ch & 0x07);
 			// 	into += 4;
 			// }
-
-
-			// switch (EncodedCharSize(ch)) {
-			// 	case 1:
-			// 		*(into++) = ch;
-			// 	break;
-
-			// 	case 2:
-			// 		into[1] = 0x80 | (ch & 0x3F);
-			// 		ch >>= 6;
-			// 		into[0] = 0xC0 | (ch & 0x1F);
-			// 		into += 2;
-			// 	break;
-
-			// 	case 3:
-			// 		into[2] = 0x80 | (ch & 0x3F);
-			// 		ch >>= 6;
-			// 		into[1] = 0x80 | (ch & 0x3F);
-			// 		ch >>= 6;
-			// 		into[0] = 0xE0 | (ch & 0x0F);
-			// 		into += 3;
-			// 	break;
-
-			// 	case 4:
-			// 		into[3] = 0x80 | (ch & 0x3F);
-			// 		ch >>= 6;
-			// 		into[2] = 0x80 | (ch & 0x3F);
-			// 		ch >>= 6;
-			// 		into[1] = 0x80 | (ch & 0x3F);
-			// 		ch >>= 6;
-			// 		into[0] = 0xF0 | (ch & 0x07);
-			// 		into += 4;
-			// 	break;
-			// }
 		}
 
 		template<typename Storage>
 		static inline void AppendString(Storage*& into, PyObject* obj) {
 			switch (PyUnicode_KIND(obj)) {
 				case PyUnicode_1BYTE_KIND:
-					if (PyUnicode_IS_ASCII(obj) && sizeof(Storage) == 1) {
+					if (PyUnicode_IS_ASCII(obj)) {
 						CopyStrBytes(into, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
 						into += PyUnicode_GET_LENGTH(obj);
 					} else {
@@ -788,14 +754,10 @@ using UnicodeBuilder = StringBuilder<Py_UCS4, size>;
 using Utf8Bytes = _ByteTraits<char, _Encoding::_Utf8>;
 using RawBytes = _ByteTraits<char, _Encoding::_Raw>;
 
-template<typename _Trait, int size>
+template<typename _Trait>
 using BytesBuilder = _StringBuilder<_Trait, _BytesMemory>;
-
-template<int size>
-using RawBytesBuilder = BytesBuilder<RawBytes, size>;
-
-template<int size>
-using Utf8BytesBuilder = BytesBuilder<Utf8Bytes, size>;
+using RawBytesBuilder = BytesBuilder<RawBytes>;
+using Utf8BytesBuilder = BytesBuilder<Utf8Bytes>;
 
 
 } // end namespace Yapic

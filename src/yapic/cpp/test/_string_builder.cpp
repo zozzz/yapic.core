@@ -8,7 +8,7 @@ using ModuleVar = Yapic::ModuleVar<Module>;
 using ModuleExc = Yapic::ModuleExc<Module>;
 using AsciiBuilder = Yapic::AsciiBuilder<1>;
 using UnicodeBuilder = Yapic::UnicodeBuilder<1>;
-using Utf8BytesBuilder = Yapic::Utf8BytesBuilder<1>;
+using Utf8BytesBuilder = Yapic::Utf8BytesBuilder;
 
 class Module : public Yapic::Module<Module> {
 public:
