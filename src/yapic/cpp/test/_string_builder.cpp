@@ -109,11 +109,46 @@ public:
 		return NULL;
 	}
 
+	static PyObject* unicode_to_bytes2(PyObject* module, PyObject* str) {
+		if (!str || !PyUnicode_CheckExact(str)) {
+			PyErr_BadInternalCall();
+			return NULL;
+		}
+		Utf8BytesBuilder builder;
+
+		if (builder.EnsureSize(str)) {
+			switch (PyUnicode_KIND(str)) {
+				case PyUnicode_1BYTE_KIND:
+					CopyIntoBuilder(builder, PyUnicode_1BYTE_DATA(str), PyUnicode_GET_LENGTH(str));
+				break;
+
+				case PyUnicode_2BYTE_KIND:
+					CopyIntoBuilder(builder, PyUnicode_2BYTE_DATA(str), PyUnicode_GET_LENGTH(str));
+				break;
+
+				case PyUnicode_4BYTE_KIND:
+					CopyIntoBuilder(builder, PyUnicode_4BYTE_DATA(str), PyUnicode_GET_LENGTH(str));
+				break;
+			}
+			return builder.ToPython();
+		}
+		return NULL;
+	}
+
+	template<typename Builder, typename Input>
+	static void CopyIntoBuilder(Builder& builder, Input* data, Py_ssize_t size) {
+		Input* end = data + size;
+		while (data < end) {
+			builder.AppendChar(*(data++));
+		}
+	}
+
 	Yapic_METHODS_BEGIN
 		Yapic_Method(ascii_builder, METH_O, NULL)
 		Yapic_Method(unicode_builder, METH_O, NULL)
 		Yapic_Method(bytes_builder, METH_O, NULL)
 		Yapic_Method(unicode_to_bytes, METH_O, NULL)
+		Yapic_Method(unicode_to_bytes2, METH_O, NULL)
 	Yapic_METHODS_END
 };
 

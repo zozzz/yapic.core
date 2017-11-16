@@ -33,3 +33,8 @@ def test_py_utf8_to_bytes(benchmark, data):
 @pytest.mark.parametrize("data", PARAMS, ids=IDS)
 def test_yapic_utf8_to_bytes(benchmark, data):
     benchmark.pedantic(lambda s: _string_builder.unicode_to_bytes(s + "1"), args=[data], iterations=100, rounds=100)
+
+
+@pytest.mark.parametrize("data", PARAMS, ids=IDS)
+def test_yapic_utf8_to_bytes2(benchmark, data):
+    benchmark.pedantic(lambda s: _string_builder.unicode_to_bytes2(s + "1"), args=[data], iterations=100, rounds=100)

@@ -178,56 +178,55 @@ static inline void CopyStrBytes(O* dest, const I* input, S length) {
 
 #undef __bytelength
 
-
-template<typename Storage>
+template<bool _isucs>
 struct _StringTraits {
 	static constexpr const int MaxEncodedCharSize = 1;
 	static constexpr const bool IsString = 1;
-	static constexpr const bool IsUnicode = sizeof(Storage) > 1;
+	static constexpr const bool IsUnicode = _isucs;
 
-	template<typename Input>
-	static inline void AppendAscii(Storage*& into, Input ch) {
+	template<typename Memory, typename Input>
+	static inline void AppendAscii(Memory& mem, Input ch) {
 		assert(ch <= 127);
-		*(into++) = ch;
+		*(mem.cursor++) = ch;
 	}
 
-	template<typename Input>
-	static inline void AppendChar(Storage*& into, Input ch) {
-		assert(sizeof(Storage) >= sizeof(Input));
-		*(into++) = ch;
+	template<typename Memory, typename Input>
+	static inline void AppendChar(Memory& mem, Input ch) {
+		assert(sizeof(Memory::DT) >= sizeof(Input));
+		*(mem.cursor++) = ch;
 	}
 
-	template<typename Mc>
-	static inline bool AppendString(Storage*& into, PyObject* obj, Mc& maxchar) {
+	template<typename Memory, typename Mc>
+	static inline bool AppendString(Memory& mem, PyObject* obj, Mc& maxchar) {
 		int kind = PyUnicode_KIND(obj);
 		maxchar |= PyUnicode_MAX_CHAR_VALUE(obj);
-		if (sizeof(Storage) == 1 && kind > sizeof(Storage)) {
+		if (sizeof(Memory::DT) == 1 && kind > sizeof(Memory::DT)) {
 			PyErr_SetString(PyExc_UnicodeError, "The given string must be ascii encoded.");
 			return false;
 		} else {
 			size_t size = PyUnicode_GET_LENGTH(obj);
 			switch (kind) {
 				case PyUnicode_1BYTE_KIND:
-					CopyStrBytes(into, PyUnicode_1BYTE_DATA(obj), size);
+					CopyStrBytes(mem.cursor, PyUnicode_1BYTE_DATA(obj), size);
 				break;
 				case PyUnicode_2BYTE_KIND:
-					CopyStrBytes(into, PyUnicode_2BYTE_DATA(obj), size);
+					CopyStrBytes(mem.cursor, PyUnicode_2BYTE_DATA(obj), size);
 				break;
 				case PyUnicode_4BYTE_KIND:
-					CopyStrBytes(into, PyUnicode_4BYTE_DATA(obj), size);
+					CopyStrBytes(mem.cursor, PyUnicode_4BYTE_DATA(obj), size);
 				break;
 				default:
 					assert(0);
 					return false;
 				break;
 			}
-			into += size;
+			mem.cursor += size;
 		}
 		return true;
 	}
 
-	template<typename Mc>
-	static inline bool AppendBytes(Storage*& into, PyObject* obj, Mc& maxchar) {
+	template<typename Memory, typename Mc>
+	static inline bool AppendBytes(Memory& mem, PyObject* obj, Mc& maxchar) {
 		// TODO: ez itt nagyon trükkös lesz lehet, mivel ki tudja milyen kódolású
 		return false;
 	}
@@ -242,7 +241,7 @@ struct _StringTraits {
 		return PyUnicode_New(size, maxchar);
 	}
 
-	template<typename Mc>
+	template<typename Storage, typename Mc>
 	static inline PyObject* NewFromSizeAndData(const Storage* data, Py_ssize_t length, Mc maxchar) {
 		PyObject* str = PyUnicode_New(length, maxchar);
 		if (str == NULL) {
@@ -301,134 +300,133 @@ namespace _Encoding {
 		static constexpr const size_t UPPER_3B_CHAR = 0xFFFF;
 		static constexpr const size_t UPPER_4B_CHAR = 0x1FFFFF;
 
+		#pragma warning( push )
+		#pragma warning( disable : 4715)
+
 		template<typename Storage, typename Input>
-		static inline void Append(Storage*& into, Input ch) {
-			// printf("Utf8::Append ch=%lu, size=%d, bsr=%d\n", ch, EncodedCharSize(ch), bsI);
-
-
+		static inline int AppendChar(Storage* into, Input ch) {
 			if (ch <= 0x80) {
 				into[0] = ch;
-				into += 1;
+				return 1;
 			} else if (ch < 0x800) {
 				into[1] = 0x80 | (ch & 0x3F);
 				into[0] = 0xC0 | (ch >> 6);
-				into += 2;
+				return 2;
 			} else if (sizeof(Input) >= 2 && ch < 0x10000) {
 				into[2] = 0x80 | (ch & 0x3F);
 				into[1] = 0x80 | ((ch >> 6) & 0x3F);
 				into[0] = 0xE0 | (ch >> 12);
-				into += 3;
+				return 3;
 			} else if (sizeof(Input) >= 4) {
 				assert(ch <= UPPER_4B_CHAR);
 				into[3] = 0x80 | (ch & 0x3F);
 				into[2] = 0x80 | ((ch >> 6) & 0x3F);
 				into[1] = 0x80 | ((ch >> 12) & 0x3F);
 				into[0] = 0xF0 | (ch >> 18);
-				into += 4;
+				return 4;
 			}
+			assert(0);
+		}
 
-			// if (ch > 127) {
-			// 	if (ch < 0x800) {
-			// 		into[0] = 0xC0 | ((ch >> 6) & 0x1F);
-			// 		into += 1;
-			// 	} else if (sizeof(Input) >= 2 && ch < 0x10000) {
-			// 		into[0] = 0xE0 | ((ch >> 12) & 0x0F);
-			// 		into[1] = 0x80 | ((ch >> 6) & 0x3F);
-			// 		into += 2;
-			// 	} else if (sizeof(Input) >= 4) {
-			// 		assert(ch <= UPPER_4B_CHAR);
-			// 		into[0] = 0xF0 | ((ch >> 18) & 0x07);
-			// 		into[1] = 0x80 | ((ch >> 12) & 0x3F);
-			// 		into[2] = 0x80 | ((ch >> 6) & 0x3F);
-			// 		into += 3;
-			// 	}
-			// 	ch = 0x80 | (ch & 0x3F);
-			// }
-			// into[0] = ch;
-			// into += 1;
+		template<typename Storage, typename Input>
+		static inline Storage* AppendChar2(Storage* into, Input ch) {
+			if (ch <= 0x80) {
+				into[0] = ch;
+				return into + 1;
+			} else if (ch < 0x800) {
+				into[1] = 0x80 | (ch & 0x3F);
+				into[0] = 0xC0 | (ch >> 6);
+				return into + 2;
+			} else if (sizeof(Input) >= 2 && ch < 0x10000) {
+				into[2] = 0x80 | (ch & 0x3F);
+				into[1] = 0x80 | ((ch >> 6) & 0x3F);
+				into[0] = 0xE0 | (ch >> 12);
+				return into + 3;
+			} else if (sizeof(Input) >= 4) {
+				assert(ch <= UPPER_4B_CHAR);
+				into[3] = 0x80 | (ch & 0x3F);
+				into[2] = 0x80 | ((ch >> 6) & 0x3F);
+				into[1] = 0x80 | ((ch >> 12) & 0x3F);
+				into[0] = 0xF0 | (ch >> 18);
+				return into + 4;
+			}
+			assert(0);
+		}
 
-			// if (ch < 0x80) {
-			// 	*(into++) = ch;
-			// } else if (ch < 0x800) {
-			// 	*(into++) = (0xC0 | (ch >> 6));
-			// 	*(into++) = (0x80 | (ch & 0x3F));
-			// } else if (sizeof(Input) >= 2 && ch < 0x10000) {
-			// 	*(into++) = (0xE0 | (ch >> 12));
-			// 	*(into++) = (0x80 | ((ch >> 6) & 0x3F));
-			// 	*(into++) = (0x80 | (ch & 0x3F));
-			// } else if (sizeof(Input) >= 4) {
-			// 	assert(ch <= UPPER_4B_CHAR);
-			// 	*(into++) = (0xF0 | (ch >> 18));
-			// 	*(into++) = (0x80 | ((ch >> 12) & 0x3F));
-			// 	*(into++) = (0x80 | ((ch >> 6) & 0x3F));
-			// 	*(into++) = (0x80 | (ch & 0x3F));
-			// }
+		#pragma warning( pop )
 
-			// if (ch <= 127) {
+		template<typename Storage, typename Input>
+		static inline void AppendChar(Storage* into, Input ch, Storage** out) {
+			if (ch <= 0x80) {
+				*(into++) = ch;
+			} else if (ch < 0x800) {
+				*(into++) = 0xC0 | (ch >> 6);
+				*(into++) = 0x80 | (ch & 0x3F);
+			} else if (sizeof(Input) >= 2 && ch < 0x10000) {
+				*(into++) = 0xE0 | (ch >> 12);
+				*(into++) = 0x80 | ((ch >> 6) & 0x3F);
+				*(into++) = 0x80 | (ch & 0x3F);
+			} else if (sizeof(Input) >= 4) {
+				assert(ch <= UPPER_4B_CHAR);
+				*(into++) = 0xF0 | (ch >> 18);
+				*(into++) = 0x80 | ((ch >> 12) & 0x3F);
+				*(into++) = 0x80 | ((ch >> 6) & 0x3F);
+				*(into++) = 0x80 | (ch & 0x3F);
+			}
+			*out = into;
+
+			// if (ch <= 0x80) {
 			// 	into[0] = ch;
-			// 	into += 1;
+			// 	*out = into + 1;
 			// } else if (ch < 0x800) {
 			// 	into[1] = 0x80 | (ch & 0x3F);
-			// 	ch >>= 6;
-			// 	into[0] = 0xC0 | (ch & 0x1F);
-			// 	into += 2;
+			// 	into[0] = 0xC0 | (ch >> 6);
+			// 	*out = into + 2;
 			// } else if (sizeof(Input) >= 2 && ch < 0x10000) {
 			// 	into[2] = 0x80 | (ch & 0x3F);
-			// 	ch >>= 6;
-			// 	into[1] = 0x80 | (ch & 0x3F);
-			// 	ch >>= 6;
-			// 	into[0] = 0xE0 | (ch & 0x0F);
-			// 	into += 3;
+			// 	into[1] = 0x80 | ((ch >> 6) & 0x3F);
+			// 	into[0] = 0xE0 | (ch >> 12);
+			// 	*out = into + 3;
 			// } else if (sizeof(Input) >= 4) {
 			// 	assert(ch <= UPPER_4B_CHAR);
 			// 	into[3] = 0x80 | (ch & 0x3F);
-			// 	ch >>= 6;
-			// 	into[2] = 0x80 | (ch & 0x3F);
-			// 	ch >>= 6;
-			// 	into[1] = 0x80 | (ch & 0x3F);
-			// 	ch >>= 6;
-			// 	into[0] = 0xF0 | (ch & 0x07);
-			// 	into += 4;
+			// 	into[2] = 0x80 | ((ch >> 6) & 0x3F);
+			// 	into[1] = 0x80 | ((ch >> 12) & 0x3F);
+			// 	into[0] = 0xF0 | (ch >> 18);
+			// 	*out = into + 4;
 			// }
 		}
 
-		template<typename Storage>
-		static inline void AppendString(Storage*& into, PyObject* obj) {
+		template<typename Memory>
+		static inline void AppendString(Memory& mem, PyObject* obj) {
 			switch (PyUnicode_KIND(obj)) {
 				case PyUnicode_1BYTE_KIND:
 					if (PyUnicode_IS_ASCII(obj)) {
-						CopyStrBytes(into, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
-						into += PyUnicode_GET_LENGTH(obj);
+						CopyStrBytes(mem.cursor, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+						mem.cursor += PyUnicode_GET_LENGTH(obj);
 					} else {
-						__AppendString(into, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+						__AppendString(mem, PyUnicode_1BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
 					}
 				break;
 
 				case PyUnicode_2BYTE_KIND:
-					__AppendString(into, PyUnicode_2BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+					__AppendString(mem, PyUnicode_2BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
 				break;
 
 				case PyUnicode_4BYTE_KIND:
-					__AppendString(into, PyUnicode_4BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
+					__AppendString(mem, PyUnicode_4BYTE_DATA(obj), PyUnicode_GET_LENGTH(obj));
 				break;
 			}
 		}
 
-		template<typename Storage, typename Input>
-		static inline void __AppendString(Storage*& into, Input* data, Py_ssize_t size) {
+		template<typename Memory, typename Input>
+		static inline void __AppendString(Memory& mem, Input* data, Py_ssize_t size) {
 			Input* end = data + size;
+			Memory::DT* into = mem.cursor;
 			while (data < end) {
-				Append(into, *(data++));
+				into += AppendChar(into, *(data++));
 			}
-			// for (int i=0 ; i<size ;) {
-			// 	Append(into, data[i++]);
-			// }
-		}
-
-		static inline const unsigned char* UnicodeToBytes(PyObject* obj, Py_ssize_t& size) {
-			assert(obj != NULL);
-			assert(PyUnicode_Check(obj));
-			return (unsigned char*) PyUnicode_AsUTF8AndSize(obj, &size);
+			mem.cursor = into;
 		}
 
 		template<typename Input>
@@ -468,9 +466,10 @@ namespace _Encoding {
 		static constexpr const bool IsUnicode = false;
 
 		template<typename Storage, typename Input>
-		static inline void Append(Storage*& into, Input ch) {
+		static inline int AppendChar(Storage* into, Input ch) {
 			if (sizeof(Storage) >= sizeof(Input)) {
-				*(into++) = ch;
+				into[0] = ch;
+				return 1;
 			} else {
 				// ha nem stimmel a méret akkor csak byte szinten feldarabolja
 				// TODO: még kitaláni, hogy jó ötlet-e
@@ -532,54 +531,44 @@ namespace _Encoding {
 			assert(obj != NULL);
 			return PyBytes_GET_SIZE(obj);
 		}
-
-		static inline const unsigned char* UnicodeToBytes(PyObject* obj, Py_ssize_t& size) {
-			assert(obj != NULL);
-			assert(PyUnicode_Check(obj));
-			size = PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj);
-			return (unsigned char*) PyUnicode_1BYTE_DATA(obj);
-		}
 	};
 } // end namespace _Encoding
 
 
-template<typename Storage, typename Encoding>
+template<typename Encoding>
 struct _ByteTraits {
 	static constexpr const int MaxEncodedCharSize = 1;
 	static constexpr const bool IsString = false;
 	static constexpr const bool IsUnicode = Encoding::IsUnicode;
 
-	template<typename Input>
-	static inline void AppendAscii(Storage*& into, Input ch) {
+	template<typename Memory, typename Input>
+	static inline void AppendAscii(Memory& mem, Input ch) {
 		assert(ch <= 127);
 		// printf("AppendAscii %s ch=%lu cursor=%p\n", typeid(Storage).name(), ch, into);
-		*(into++) = ch;
+		*(mem.cursor++) = ch;
 	}
 
-	template<typename Input>
-	static inline void AppendChar(Storage*& into, Input ch) {
-		Encoding::Append(into, ch);
+	template<typename Memory, typename Input>
+	static inline void AppendChar(Memory& mem, Input ch) {
+		mem.cursor += Encoding::AppendChar(mem.cursor, ch);
+		// mem.cursor = Encoding::AppendChar2(mem.cursor, ch);
 	}
 
-	template<typename Mc>
-	static inline bool AppendString(Storage*& into, PyObject* obj, Mc& maxchar) {
+	template<typename Memory, typename Mc>
+	static inline bool AppendString(Memory& mem, PyObject* obj, Mc& maxchar) {
 		assert(obj != NULL);
 		assert(PyUnicode_CheckExact(obj));
-		Encoding::AppendString(into, obj);
+		Encoding::AppendString(mem, obj);
 		return true;
 	}
 
-	template<typename Mc>
-	static inline bool AppendBytes(Storage*& into, PyObject* obj, Mc& maxchar) {
+	template<typename Memory, typename Mc>
+	static inline bool AppendBytes(Memory& mem, PyObject* obj, Mc& maxchar) {
 		assert(obj != NULL);
 		assert(PyBytes_CheckExact(obj));
-		__append(into, (unsigned char*) PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj));
+		CopyStrBytes(mem.cursor, PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj));
+		mem.cursor += PyBytes_GET_SIZE(obj);
 		return true;
-	}
-
-	static inline void __append(Storage*& into, const unsigned char* input, Py_ssize_t size) {
-		CopyStrBytes(into, input, size);
-		into += size;
 	}
 
 	template<typename Mc, typename Input>
@@ -635,14 +624,14 @@ public:
 	template<typename Input>
 	inline void AppendAscii(Input ch) {
 		assert(_memory.cursor < _memory.End());
-		Trait::AppendAscii(_memory.cursor, ch);
+		Trait::AppendAscii(_memory, ch);
 	}
 
 	template<typename Input>
 	inline void AppendChar(Input ch) {
 		assert(_memory.cursor < _memory.End());
 		Trait::UpdateMaxchar(_maxchar, ch);
-		Trait::AppendChar(_memory.cursor, ch);
+		Trait::AppendChar(_memory, ch);
 	}
 
 	template<typename Input>
@@ -650,7 +639,7 @@ public:
 		if (EnsureSize(Trait::EncodedCharSize(ch))) {
 			assert(_memory.cursor < _memory.End());
 			Trait::UpdateMaxchar(_maxchar, ch);
-			Trait::AppendChar(_memory.cursor, ch);
+			Trait::AppendChar(_memory, ch);
 			return true;
 		} else {
 			return false;
@@ -684,7 +673,7 @@ public:
 	inline bool AppendString(PyObject* obj) {
 		assert(obj != NULL);
 		assert(PyUnicode_CheckExact(obj));
-		return Trait::AppendString(_memory.cursor, obj, _maxchar);
+		return Trait::AppendString(_memory, obj, _maxchar);
 	}
 
 	inline bool AppendStringSafe(PyObject* obj) {
@@ -696,7 +685,7 @@ public:
 	inline bool AppendBytes(PyObject* obj) {
 		assert(obj != NULL);
 		assert(PyBytes_CheckExact(obj));
-		return Trait::AppendBytes(_memory.cursor, obj, _maxchar);
+		return Trait::AppendBytes(_memory, obj, _maxchar);
 	}
 
 	inline bool AppendBytesSafe(PyObject* obj) {
@@ -715,6 +704,8 @@ public:
 		} else if (PyBytes_CheckExact(obj)) {
 			return EnsureSize(Trait::RequiredSizeForBytes(obj));
 		}
+		PyErr_BadInternalCall();
+		return false;
 	}
 
 	inline PyObject* ToPython() {
@@ -740,19 +731,19 @@ private:
 
 
 
-template<typename DT, int size>
-using StringBuilder = _StringBuilder<_StringTraits<DT>, _Memory<DT, size>>;
+template<typename DT, int size, bool isucs>
+using StringBuilder = _StringBuilder<_StringTraits<isucs>, _Memory<DT, size>>;
 
 template<int size>
-using AsciiBuilder = StringBuilder<char, size>;
+using AsciiBuilder = StringBuilder<char, size, false>;
 
 template<int size>
-using UnicodeBuilder = StringBuilder<Py_UCS4, size>;
+using UnicodeBuilder = StringBuilder<Py_UCS4, size, true>;
 
 
 
-using Utf8Bytes = _ByteTraits<char, _Encoding::_Utf8>;
-using RawBytes = _ByteTraits<char, _Encoding::_Raw>;
+using Utf8Bytes = _ByteTraits<_Encoding::_Utf8>;
+using RawBytes = _ByteTraits<_Encoding::_Raw>;
 
 template<typename _Trait>
 using BytesBuilder = _StringBuilder<_Trait, _BytesMemory>;
