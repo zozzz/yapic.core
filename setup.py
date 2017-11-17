@@ -8,34 +8,7 @@ from setuptools.command.test import test as TestCommand
 from setuptools.command.build_ext import build_ext
 from setuptools.command.egg_info import egg_info
 
-# DEVELOP = os.environ.get("DEVELOP") == "1"
-# DEVELOP = True
-# extensions = []
-package_data = ["include/**/*.hpp"]
-
 # min version: 3.5
-
-
-# if DEVELOP:
-#     modules = [
-#         "src/yapic/cpp/test/_module.cpp",
-#         "src/yapic/cpp/test/_bad_module.cpp",
-#         "src/yapic/cpp/test/_bad_module2.cpp",
-#         "src/yapic/cpp/test/_import.cpp",
-#         "src/yapic/cpp/test/_bad_import.cpp",
-#         "src/yapic/cpp/test/_bad_import2.cpp",
-#     ]
-#     for m in modules:
-#         extensions.append(
-#             Extension(
-#                 name="yapic.cpp.test." + os.path.splitext(os.path.basename(m))[0],
-#                 sources=[m],
-#                 include_dirs=["src/yapic/cpp/include"],
-#                 undef_macros=["NDEBUG"],
-#                 # extra_compile_args=["/P"],
-#                 language="c++"
-#             )
-#         )
 
 
 class PyTest(TestCommand):
@@ -45,13 +18,13 @@ class PyTest(TestCommand):
     ]
 
     ext_modules = [
-        "src/yapic/cpp/test/_module.cpp",
-        "src/yapic/cpp/test/_bad_module.cpp",
-        "src/yapic/cpp/test/_bad_module2.cpp",
-        "src/yapic/cpp/test/_import.cpp",
-        "src/yapic/cpp/test/_bad_import.cpp",
-        "src/yapic/cpp/test/_bad_import2.cpp",
-        "src/yapic/cpp/test/_string_builder.cpp",
+        "src/yapic/core/test/_module.cpp",
+        "src/yapic/core/test/_bad_module.cpp",
+        "src/yapic/core/test/_bad_module2.cpp",
+        "src/yapic/core/test/_import.cpp",
+        "src/yapic/core/test/_bad_import.cpp",
+        "src/yapic/core/test/_bad_import2.cpp",
+        "src/yapic/core/test/_string_builder.cpp",
     ]
 
     def initialize_options(self):
@@ -98,7 +71,7 @@ class PyTest(TestCommand):
     def _init_exts(self):
         if not self.distribution.ext_modules:
             self.distribution.ext_modules = []
-        self.distribution.packages += ["yapic.cpp.test"]
+        self.distribution.packages += ["yapic.core.test"]
         define_macros = {}
 
         if sys.platform == "win32":
@@ -125,16 +98,16 @@ class PyTest(TestCommand):
                 # extra_compile_args.append("/MT")
                 # extra_compile_args.append("/MD")
 
-        depends = glob("src/yapic/cpp/include/**/*.hpp")
+        depends = glob("src/yapic/core/include/**/*.hpp")
         for m in self.ext_modules:
             ecp = list(extra_compile_args)
             # ecp.append("/FC")
             # ecp.append(str(Path(__file__).absolute().parent.joinpath(m)))
             self.distribution.ext_modules.append(
                 Extension(
-                    name="yapic.cpp.test." + os.path.splitext(os.path.basename(m))[0],
+                    name="yapic.core.test." + os.path.splitext(os.path.basename(m))[0],
                     sources=[m],
-                    include_dirs=["src/yapic/cpp/include"],
+                    include_dirs=["src/yapic/core/include"],
                     undef_macros=undef_macros,
                     define_macros=list(define_macros.items()),
                     extra_compile_args=ecp,
@@ -145,10 +118,10 @@ class PyTest(TestCommand):
 
 
 dist = setup(
-    name="yapic.cpp",
-    packages=["yapic.cpp"],
-    package_dir={"yapic.cpp": "src/yapic/cpp"},
-    package_data={"yapic.cpp": package_data},
+    name="yapic.core",
+    packages=["yapic.core"],
+    package_dir={"yapic.core": "src/yapic/core"},
+    package_data={"yapic.core": ["include/**/*.hpp"]},
     tests_require=["pytest", "pytest-benchmark"],
     python_requires=">=3.5",
     cmdclass={"test": PyTest}

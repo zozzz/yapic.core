@@ -3,7 +3,7 @@
 
 class BadModule : public Yapic::Module<BadModule> {
 public:
-	static constexpr const char* __name__ = "yapic.cpp.test._bad_module";
+	static constexpr const char* __name__ = "yapic.core.test._bad_module";
 
 	Yapic::ModuleVar<BadModule> bad;
 

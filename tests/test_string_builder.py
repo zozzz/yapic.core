@@ -1,5 +1,5 @@
 import pytest
-from yapic.cpp.test import _string_builder
+from yapic.core.test import _string_builder
 
 
 @pytest.mark.parametrize("value", [

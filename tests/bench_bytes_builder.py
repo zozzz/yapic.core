@@ -1,5 +1,5 @@
 import pytest
-from yapic.cpp.test import _string_builder
+from yapic.core.test import _string_builder
 
 UTF8_STR = "Árvíztűrő tükörfúrógép"
 UTF8_4B = "𐌀𐌁𐌂𐌃𐌄𐌅𐌆𐌇𐌈𐌉𐌊𐌋𐌌𐌍𐌏𐌐𐌑𐌒𐌓𐌔𐌕𐌖𐌗𐌘𐌙𐌚𐌛𐌜𐌝𐌞𐌠𐌡𐌢𐌣"

@@ -3,7 +3,7 @@
 
 class BadImport : public Yapic::Module<BadImport> {
 public:
-	static constexpr const char* __name__ = "yapic.cpp.test._bad_import";
+	static constexpr const char* __name__ = "yapic.core.test._bad_import";
 
 	Yapic::ModuleRef<BadImport> bad;
 

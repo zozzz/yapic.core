@@ -12,7 +12,7 @@ using Utf8BytesBuilder = Yapic::Utf8BytesBuilder;
 
 class Module : public Yapic::Module<Module> {
 public:
-	static constexpr const char* __name__ = "yapic.cpp.test._string_builder";
+	static constexpr const char* __name__ = "yapic.core.test._string_builder";
 
 	static PyObject* ascii_builder(PyObject* module, PyObject* str) {
 		if (!str || !PyUnicode_CheckExact(str)) {

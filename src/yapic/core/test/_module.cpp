@@ -9,7 +9,7 @@ using ModuleExc = Yapic::ModuleExc<Module>;
 
 class Module : public Yapic::Module<Module> {
 public:
-	static constexpr const char* __name__ = "yapic.cpp.test._module";
+	static constexpr const char* __name__ = "yapic.core.test._module";
 	ModuleVar Str_code;
 	ModuleVar ErrCode_XYZ;
 	ModuleExc Exc_SomeError;

@@ -3,7 +3,7 @@
 
 class ImportModule : public Yapic::Module<ImportModule> {
 public:
-	static constexpr const char* __name__ = "yapic.cpp.test._import";
+	static constexpr const char* __name__ = "yapic.core.test._import";
 
 	Yapic::ModuleVar<ImportModule> str_join;
 	Yapic::ModuleRef<ImportModule> path;

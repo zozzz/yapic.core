@@ -1,9 +1,9 @@
 import pytest
-from yapic.cpp.test import _module
+from yapic.core.test import _module
 
 
 def test_basics():
-    assert _module.__name__ == "yapic.cpp.test._module"
+    assert _module.__name__ == "yapic.core.test._module"
     assert _module.XYZ == 42
     assert _module.do_something() == 111
     assert _module.get_state_var() == "__code__"
@@ -25,7 +25,7 @@ def test_exception():
 
 
 def test_import():
-    from yapic.cpp.test import _import
+    from yapic.core.test import _import
     from os import path
 
     assert _import.path_join("a", "b", "c") == path.join("a", "b", "c")
