@@ -353,6 +353,33 @@ namespace _Encoding {
 			assert(0);
 		}
 
+
+		template<typename Memory, typename Input>
+		static inline void AppendChar3(Memory& mem, Input ch) {
+			auto c = mem.cursor;
+			if (ch <= 0x80) {
+				c[0] = ch;
+				c += 1;
+			} else if (ch < 0x800) {
+				c[1] = 0x80 | (ch & 0x3F);
+				c[0] = 0xC0 | (ch >> 6);
+				c += 2;
+			} else if (sizeof(Input) >= 2 && ch < 0x10000) {
+				c[2] = 0x80 | (ch & 0x3F);
+				c[1] = 0x80 | ((ch >> 6) & 0x3F);
+				c[0] = 0xE0 | (ch >> 12);
+				c += 3;
+			} else if (sizeof(Input) >= 4) {
+				assert(ch <= UPPER_4B_CHAR);
+				c[3] = 0x80 | (ch & 0x3F);
+				c[2] = 0x80 | ((ch >> 6) & 0x3F);
+				c[1] = 0x80 | ((ch >> 12) & 0x3F);
+				c[0] = 0xF0 | (ch >> 18);
+				c += 4;
+			}
+			mem.cursor = c;
+		}
+
 		#pragma warning( pop )
 
 		template<typename Storage, typename Input>
@@ -419,14 +446,22 @@ namespace _Encoding {
 			}
 		}
 
+		// template<typename Memory, typename Input>
+		// static inline void __AppendString(Memory& mem, Input* data, Py_ssize_t size) {
+		// 	Input* end = data + size;
+		// 	Memory::DT* into = mem.cursor;
+		// 	while (data < end) {
+		// 		into += AppendChar(into, *(data++));
+		// 	}
+		// 	mem.cursor = into;
+		// }
+
 		template<typename Memory, typename Input>
 		static inline void __AppendString(Memory& mem, Input* data, Py_ssize_t size) {
 			Input* end = data + size;
-			Memory::DT* into = mem.cursor;
 			while (data < end) {
-				into += AppendChar(into, *(data++));
+				AppendChar3(mem, *(data++));
 			}
-			mem.cursor = into;
 		}
 
 		template<typename Input>
@@ -550,8 +585,8 @@ struct _ByteTraits {
 
 	template<typename Memory, typename Input>
 	static inline void AppendChar(Memory& mem, Input ch) {
-		mem.cursor += Encoding::AppendChar(mem.cursor, ch);
-		// mem.cursor = Encoding::AppendChar2(mem.cursor, ch);
+		// Encoding::AppendChar3(mem, ch);
+		mem.cursor = Encoding::AppendChar2(mem.cursor, ch);
 	}
 
 	template<typename Memory, typename Mc>
