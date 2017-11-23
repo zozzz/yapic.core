@@ -158,12 +158,12 @@ namespace Yapic {
 				return (Self*) type->tp_alloc(sizeof(Self));
 			}
 
-			static inline bool Check(PyObject* o) {
+			static inline bool Check(void* o) {
 				assert(o != NULL);
 				return PyObject_TypeCheck(o, Self::_Type());
 			}
 
-			static inline bool CheckExact(PyObject* o) {
+			static inline bool CheckExact(void* o) {
 				assert(o != NULL);
 				return Py_TYPE(o) == Self::_Type();
 			}
