@@ -243,7 +243,7 @@ namespace Yapic {
 					/* tp_weaklistoffset */ 0,
 					/* tp_iter */ 			Yapic_GetTypeMethod(Self, __iter__),
 					/* tp_iternext */ 		Yapic_GetTypeMethod(Self, __next__),
-					/* tp_methods */ 		Self::__methods__(),
+					/* tp_methods */ 		const_cast<PyMethodDef*>(Self::__methods__()),
 					/* tp_members */ 		0,
 					/* tp_getset */ 		0,
 					/* tp_base */ 			0,
