@@ -192,7 +192,7 @@ namespace Yapic {
 				return name->Value();
 			}
 
-			static inline void __dealloc__(PyObject* self) {
+			static inline void __dealloc__(void* self) {
 				Py_TYPE(self)->tp_free((PyObject*) self);
 			}
 
