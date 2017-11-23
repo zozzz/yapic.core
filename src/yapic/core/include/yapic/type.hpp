@@ -149,7 +149,7 @@ namespace Yapic {
 			using Super = _super;
 
 			static inline Self* Alloc() {
-				return Alloc(Self::Type());
+				return Alloc(Self::_Type());
 			}
 
 			static inline Self* Alloc(PyTypeObject* type) {
