@@ -28,6 +28,11 @@
 	(Optional ## __method <__cls> (NULL))
 
 
+#define Yapic_PrivateNew \
+	static PyObject* __new__(PyTypeObject *type, PyObject *args, PyObject *kwargs) { \
+		PyErr_Format("Cann not instantiate %s class from python.", type->tp_name); \
+		return NULL; \
+	}
 
 
 template<typename T>
