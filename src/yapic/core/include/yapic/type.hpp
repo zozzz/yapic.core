@@ -149,18 +149,18 @@ namespace Yapic {
 			using Super = _super;
 
 			static inline Self* Alloc() {
-				return Alloc(Self::_Type());
+				return Alloc(const_cast<PyTypeObject*>(Self::_Type()));
 			}
 
 			static inline Self* Alloc(PyTypeObject* type) {
 				assert(type != NULL);
 				assert((type->tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);
-				return (Self*) type->tp_alloc(sizeof(Self));
+				return (Self*) type->tp_alloc(type, sizeof(Self));
 			}
 
 			static inline bool Check(void* o) {
 				assert(o != NULL);
-				return PyObject_TypeCheck(o, Self::_Type());
+				return PyObject_TypeCheck(o, const_cast<PyTypeObject*>(Self::_Type()));
 			}
 
 			static inline bool CheckExact(void* o) {
