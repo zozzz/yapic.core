@@ -47,7 +47,7 @@ class _PyPtr {
 
 		inline bool IsNull() const { return _var == NULL; }
 		inline bool IsValid() const { return _var != NULL; }
-		inline PyObject* Steal() { O* tmp = _var; _var = NULL; return (PyObject*) tmp; }
+		inline O* Steal() { O* tmp = _var; _var = NULL; return tmp; }
 		inline void Clear() {
 			if (_var != NULL) {
 				Py_DECREF(_var);
