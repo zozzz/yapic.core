@@ -22,7 +22,7 @@ class _PyPtr {
 
 	public:
 		inline _PyPtr(O* var): _var(var) {  }
-		inline ~_PyPtr() { __PyPtr_DECREF(_var); } }
+		inline ~_PyPtr() { __PyPtr_DECREF(_var); }
 		inline O& operator* () const { return *_var; }
 		inline O* operator-> () const { return _var; }
 
