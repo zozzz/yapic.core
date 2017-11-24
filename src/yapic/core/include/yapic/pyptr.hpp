@@ -21,6 +21,7 @@ template<typename O>
 class _PyPtr {
 
 	public:
+		inline _PyPtr(): _var(NULL) {  }
 		inline _PyPtr(O* var): _var(var) {  }
 		inline ~_PyPtr() { __PyPtr_DECREF(_var); }
 		inline O& operator* () const { return *_var; }
