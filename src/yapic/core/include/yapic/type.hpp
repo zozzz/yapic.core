@@ -46,7 +46,7 @@ class ClassBaseName {
 		}
 		~ClassBaseName() {
 			if (_name != NULL) {
-				free(_name);
+				PyMem_Free(_name);
 			}
 		}
 
@@ -69,7 +69,7 @@ class ClassBaseName {
 			}
 
 			memmove(_name, _name + (len - nameLen), nameLen * sizeof(char));
-			realloc(_name, (nameLen + 1) * sizeof(char));
+			_name = (char*) PyMem_Realloc(_name, (nameLen + 1) * sizeof(char));
 			_name[nameLen] = '\0';
 		}
 	private:
@@ -81,7 +81,7 @@ class ClassBaseName {
 	void ClassBaseName<T>::Determine() {
 		const char* name = typeid(T).name();
 		size_t len = strlen(name);
-		_name = (char*) malloc((len + 1) * sizeof(char));
+		_name = (char*) PyMem_Malloc((len + 1) * sizeof(char));
 		memcpy(_name, name, len);
 		_name[len] = '\0';
 	}
@@ -96,10 +96,10 @@ class ClassBaseName {
 		int status;
 		const char* name = typeid(T).name();
 		size_t len = strlen(name);
-		_name = (char*) malloc((len + 1) * sizeof(char));
+		_name = (char*) PyMem_Malloc((len + 1) * sizeof(char));
 		abi::__cxa_demangle(c, _name, len + 1, &status);
 		if (status != 0) {
-			free(_name);
+			PyMem_Free(_name);
 			_name = NULL;
 		}
 	}
