@@ -30,6 +30,17 @@ class _PyPtr {
 			if (this != &other) {
 				__PyPtr_DECREF(_var);
 				_var = other._var;
+				if (_var != NULL) {
+					Py_INCREF(_var);
+				}
+			}
+			return *this;
+		}
+
+		inline _PyPtr<O>& operator= (_PyPtr<O>&& other) {
+			if (this != &other) {
+				__PyPtr_DECREF(_var);
+				_var = other.Steal();
 			}
 			return *this;
 		}
