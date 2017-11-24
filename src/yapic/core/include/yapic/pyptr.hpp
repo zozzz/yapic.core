@@ -43,8 +43,8 @@ class _PyPtr {
 		inline operator PyTupleObject* () const { return (PyTupleObject*) _var; } \
 		inline operator PyDictObject* () const { return (PyDictObject*) _var; }
 
-		inline bool isNull() const { return _var == NULL; }
-		inline bool isValid() const { return _var != NULL; }
+		inline bool IsNull() const { return _var == NULL; }
+		inline bool IsValid() const { return _var != NULL; }
 		inline PyObject* Steal() { O* tmp = _var; _var = NULL; return (PyObject*) tmp; }
 	protected:
 		O* _var;
