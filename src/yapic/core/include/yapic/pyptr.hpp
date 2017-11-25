@@ -54,8 +54,17 @@ class _PyPtr {
 			return *this;
 		}
 
-		inline operator PyTupleObject* () const { return (PyTupleObject*) _var; } \
+		inline operator PyTupleObject* () const { return (PyTupleObject*) _var; }
 		inline operator PyDictObject* () const { return (PyDictObject*) _var; }
+		inline operator PyVarObject* () const { return (PyVarObject*) _var; }
+		inline operator PyLongObject* () const { return (PyLongObject*) _var; }
+		inline operator PyFloatObject* () const { return (PyFloatObject*) _var; }
+		inline operator PyByteArrayObject* () const { return (PyByteArrayObject*) _var; }
+		inline operator PyBytesObject* () const { return (PyBytesObject*) _var; }
+		inline operator PyUnicodeObject* () const { return (PyUnicodeObject*) _var; }
+		inline operator PyTypeObject* () const { return (PyTypeObject*) _var; }
+		inline operator PyCodeObject* () const { return (PyCodeObject*) _var; }
+		inline operator PyComplexObject* () const { return (PyComplexObject*) _var; }
 
 		inline bool IsNull() const { return _var == NULL; }
 		inline bool IsValid() const { return _var != NULL; }
