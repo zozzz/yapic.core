@@ -5,9 +5,6 @@
 
 namespace Yapic {
 
-#define __PyPtr_DECREF(V) \
-	if (V != NULL) { Py_DECREF(V); }
-
 /**
  * Usage:
  * PyPtr injector(Injector::Alloc());
@@ -21,39 +18,31 @@ template<typename O>
 class _PyPtr {
 
 	public:
-		inline _PyPtr(): _var(NULL) {  }
 		inline _PyPtr(O* var): _var(var) {  }
-		inline ~_PyPtr() { __PyPtr_DECREF(_var); }
+		inline ~_PyPtr() { Py_XDECREF(_var); }
 		inline O& operator* () const { return *_var; }
 		inline O* operator-> () const { return _var; }
 
 		inline _PyPtr<O>& operator= (const _PyPtr<O>& other) {
 			if (this != &other) {
-				__PyPtr_DECREF(_var);
+				Py_XDECREF(_var);
+				Py_XINCREF(other._var);
 				_var = other._var;
-				if (_var != NULL) {
-					Py_INCREF(_var);
-				}
 			}
 			return *this;
 		}
 
 		inline _PyPtr<O>& operator= (_PyPtr<O>&& other) {
 			if (this != &other) {
-				__PyPtr_DECREF(_var);
+				Py_XDECREF(_var);
 				_var = other.Steal();
 			}
 			return *this;
 		}
 
-		inline _PyPtr<O>& operator= (const O* other) {
-			if (_var != other) {
-				__PyPtr_DECREF(_var);
-				_var = other;
-			}
-			return *this;
-		}
+		inline _PyPtr<O>& operator= (const O* other) = delete;
 
+		// deprecated
 		inline operator PyTupleObject* () const { return (PyTupleObject*) _var; }
 		inline operator PyDictObject* () const { return (PyDictObject*) _var; }
 		inline operator PyVarObject* () const { return (PyVarObject*) _var; }
@@ -66,19 +55,18 @@ class _PyPtr {
 		inline operator PyCodeObject* () const { return (PyCodeObject*) _var; }
 		inline operator PyComplexObject* () const { return (PyComplexObject*) _var; }
 
+		template<typename AS>
+		inline AS* As() const { return (AS*) _var; }
+		inline PyObject* AsObject() const { return (PyObject*) _var; };
+
 		inline bool IsNull() const { return _var == NULL; }
 		inline bool IsValid() const { return _var != NULL; }
-		inline void Incref() { if (_var != NULL) { Py_INCREF(_var); } }
-		inline void Decref() { if (_var != NULL) { Py_DECREF(_var); } }
+		inline void Incref() { assert(_var != NULL); Py_INCREF(_var); }
+		inline void Decref() { assert(_var != NULL); Py_DECREF(_var); }
 		inline O* Steal() { O* tmp = _var; _var = NULL; return tmp; }
-		inline void Clear() {
-			if (_var != NULL) {
-				Py_DECREF(_var);
-				_var = NULL;
-			}
-		}
+		inline void Clear() { Py_CLEAR(_var); }
 	protected:
-		O* _var;
+		O* _var = NULL;
 };
 
 
@@ -92,7 +80,7 @@ public:
 
 	inline _PyPtr<O>& operator= (const PyObject* other) {
 		if (_var != ((O*) other)) {
-			__PyPtr_DECREF(_var);
+			Py_XDECREF(_var);
 			_var = (O*) other;
 		}
 		return *this;
