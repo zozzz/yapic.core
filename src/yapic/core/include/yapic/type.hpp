@@ -149,7 +149,7 @@ namespace Yapic {
 			using Super = _super;
 
 			static inline Self* Alloc() {
-				return Alloc(const_cast<PyTypeObject*>(Self::Type()));
+				return Alloc(const_cast<PyTypeObject*>(Self::PyType()));
 			}
 
 			static inline Self* Alloc(PyTypeObject* type) {
@@ -160,16 +160,16 @@ namespace Yapic {
 
 			static inline bool Check(void* o) {
 				assert(o != NULL);
-				return PyObject_TypeCheck(o, const_cast<PyTypeObject*>(Self::Type()));
+				return PyObject_TypeCheck(o, const_cast<PyTypeObject*>(Self::PyType()));
 			}
 
 			static inline bool CheckExact(void* o) {
 				assert(o != NULL);
-				return Py_TYPE(o) == Self::Type();
+				return Py_TYPE(o) == Self::PyType();
 			}
 
 			static inline bool Register(PyObject* module) {
-				PyTypeObject* type = const_cast<PyTypeObject*>(Self::Type());
+				PyTypeObject* type = const_cast<PyTypeObject*>(Self::PyType());
 				Self::InitType(type);
 				type->tp_base = const_cast<PyTypeObject*>(Self::_BaseType());
 				if (PyType_Ready(type) < 0) {
@@ -205,16 +205,16 @@ namespace Yapic {
 			}
 
 			static inline const PyTypeObject* _BaseType() {
-				const PyTypeObject* type = Super::Type();
+				const PyTypeObject* type = Super::PyType();
 				assert(type != NULL);
 				if (type->tp_flags & Py_TPFLAGS_READY) {
 					return type;
 				} else {
-					return Super::Type();
+					return Super::PyType();
 				}
 			}
 
-			static inline const PyTypeObject* Type() {
+			static inline const PyTypeObject* PyType() {
 				static const PyTypeObject type = {
 					PyVarObject_HEAD_INIT(NULL, 0)
 					/* tp_name */ 			Self::Name(),
@@ -275,11 +275,11 @@ namespace Yapic {
 				}
 			}
 
-			static inline const PyTypeObject* Type() {
+			static inline const PyTypeObject* PyType() {
 				if (std::is_same<Self, Builtin>::value) {
 					return _traits::Type;
 				} else {
-					return Self::Type();
+					return Self::PyType();
 				}
 			}
 		public:
