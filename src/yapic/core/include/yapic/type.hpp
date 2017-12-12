@@ -14,7 +14,7 @@
 		typedef char no[2]; \
 		template <typename C> static yes& Test(decltype(&C::__name)); \
 		template <typename C> static  no& Test(...); \
-		static bool const Value = sizeof(Test<T>(0)) == sizeof(yes); \
+		static bool constexpr Value = sizeof(Test<T>(0)) == sizeof(yes); \
 	}; \
 	template<class T> \
 	static inline auto Optional ## __name (decltype(&T::__name)*) -> __type { return reinterpret_cast<__type>(&T::__name); } \
@@ -138,7 +138,33 @@ namespace Yapic {
 	// async protocol
 	// number protocol
 	// sequence protocol
+	Yapic_MethodChecker(__sq_len__, lenfunc, NULL);
+	Yapic_MethodChecker(__sq_concat__, binaryfunc, NULL);
+	Yapic_MethodChecker(__sq_repeat__, ssizeargfunc, NULL);
+	Yapic_MethodChecker(__sq_getitem__, ssizeargfunc, NULL);
+	Yapic_MethodChecker(__sq_setitem__, ssizeobjargproc, NULL);
+	Yapic_MethodChecker(__sq_contains__, objobjproc, NULL);
+	Yapic_MethodChecker(__sq_inplace_concat__, binaryfunc, NULL);
+	Yapic_MethodChecker(__sq_inplace_repeat__, ssizeargfunc, NULL);
+	#define Yapic_TypeHasSequenceMethods(__cls) (\
+		Yapic_HasMethod(__cls, __sq_len__) || \
+		Yapic_HasMethod(__cls, __sq_concat__) || \
+		Yapic_HasMethod(__cls, __sq_repeat__) || \
+		Yapic_HasMethod(__cls, __sq_getitem__) || \
+		Yapic_HasMethod(__cls, __sq_setitem__) || \
+		Yapic_HasMethod(__cls, __sq_contains__) || \
+		Yapic_HasMethod(__cls, __sq_inplace_concat__) || \
+		Yapic_HasMethod(__cls, __sq_inplace_repeat__))
+
 	// mapping protocol
+	Yapic_MethodChecker(__mp_len__, lenfunc, NULL);
+	Yapic_MethodChecker(__mp_getitem__, binaryfunc, NULL);
+	Yapic_MethodChecker(__mp_setitem__, objobjargproc, NULL);
+	#define Yapic_TypeHasMappingMethods(__cls) (\
+		Yapic_HasMethod(__cls, __mp_len__) || \
+		Yapic_HasMethod(__cls, __mp_getitem__) || \
+		Yapic_HasMethod(__cls, __mp_setitem__))
+
 	// buffer protocol
 
 
@@ -170,26 +196,21 @@ namespace Yapic {
 
 			static inline bool Register(PyObject* module) {
 				PyTypeObject* type = const_cast<PyTypeObject*>(Self::PyType());
-				Self::InitType(type);
 				type->tp_base = const_cast<PyTypeObject*>(Self::_BaseType());
 				if (PyType_Ready(type) < 0) {
 					return false;
 				}
 				Py_INCREF(type);
-				if (PyModule_AddObject(module, Self::Name(), (PyObject*) type) == -1) {
+				if (PyModule_AddObject(module, Self::Name(), (PyObject*) type) < 0) {
 					Py_DECREF(type);
 					return false;
 				}
 				return true;
 			}
 
-			static void InitType(PyTypeObject* type) {
-
-			}
-
 			static inline const char* Name() {
-				static const ClassBaseName<Self>* name = new ClassBaseName<Self>();
-				return name->Value();
+				static const ClassBaseName<Self> name;
+				return name.Value();
 			}
 
 			static inline void __dealloc__(void* self) {
@@ -219,43 +240,68 @@ namespace Yapic {
 					PyVarObject_HEAD_INIT(NULL, 0)
 					/* tp_name */ 			Self::Name(),
 					/* tp_basicsize */ 		sizeof(Self),
-					/* tp_itemsize */ 		0,
+					/* tp_itemsize */ 		static_cast<Py_ssize_t>(0),
 					/* tp_dealloc */ 		(destructor) Yapic_GetTypeMethod(Self, __dealloc__),
-					/* tp_print */ 			0,
+					/* tp_print */ 			NULL,
 					/* tp_getattr */ 		Yapic_GetTypeMethod(Self, __getattr__),
 					/* tp_setattr */ 		Yapic_GetTypeMethod(Self, __setattr__),
-					/* tp_as_async */ 		0,
+					/* tp_as_async */ 		NULL,
 					/* tp_repr */ 			Yapic_GetTypeMethod(Self, __repr__),
-					/* tp_as_number */ 		0,
-					/* tp_as_sequence */ 	0,
-					/* tp_as_mapping */ 	0,
+					/* tp_as_number */ 		NULL,
+					/* tp_as_sequence */ 	Yapic_TypeHasSequenceMethods(Self) ? Self::_SequenceMethods() : NULL,
+					/* tp_as_mapping */ 	Yapic_TypeHasMappingMethods(Self) ? Self::_MappingMethods() : NULL,
 					/* tp_hash  */ 			Yapic_GetTypeMethod(Self, __hash__),
 					/* tp_call */ 			Yapic_GetTypeMethod(Self, __call__),
 					/* tp_str */ 			Yapic_GetTypeMethod(Self, __str__),
 					/* tp_getattro */ 		Yapic_GetTypeMethod(Self, __getattro__),
 					/* tp_setattro */ 		Yapic_GetTypeMethod(Self, __setattro__),
-					/* tp_as_buffer */ 		0,
+					/* tp_as_buffer */ 		NULL,
 					/* tp_flags */ 			Self::Flags(),
-					/* tp_doc */ 			0,
+					/* tp_doc */ 			NULL,
 					/* tp_traverse */ 		Yapic_GetTypeMethod(Self, __traverse__),
 					/* tp_clear */ 			Yapic_GetTypeMethod(Self, __clear__),
 					/* tp_richcompare */ 	Yapic_GetTypeMethod(Self, __cmp__),
-					/* tp_weaklistoffset */ 0,
+					/* tp_weaklistoffset */ NULL,
 					/* tp_iter */ 			Yapic_GetTypeMethod(Self, __iter__),
 					/* tp_iternext */ 		Yapic_GetTypeMethod(Self, __next__),
 					/* tp_methods */ 		const_cast<PyMethodDef*>(Self::__methods__()),
-					/* tp_members */ 		0,
-					/* tp_getset */ 		0,
-					/* tp_base */ 			0,
-					/* tp_dict */ 			0,
+					/* tp_members */ 		NULL,
+					/* tp_getset */ 		NULL,
+					/* tp_base */ 			NULL,
+					/* tp_dict */ 			NULL,
 					/* tp_descr_get */ 		Yapic_GetTypeMethod(Self, __get__),
 					/* tp_descr_set */ 		Yapic_GetTypeMethod(Self, __set__),
-					/* tp_dictoffset */ 	0,
+					/* tp_dictoffset */ 	NULL,
 					/* tp_init */ 			Yapic_GetTypeMethod(Self, __init__),
 					/* tp_alloc */ 			Yapic_GetTypeMethod(Self, __alloc__),
 					/* tp_new */ 			Yapic_GetTypeMethod(Self, __new__)
 				};
 				return &type;
+			}
+		protected:
+			static inline PyMappingMethods* _MappingMethods() {
+				static PyMappingMethods methods = {
+					Yapic_GetTypeMethod(Self, __mp_len__),
+					Yapic_GetTypeMethod(Self, __mp_getitem__),
+					Yapic_GetTypeMethod(Self, __mp_setitem__)
+				};
+				return &methods;
+			}
+
+			static inline PySequenceMethods* _SequenceMethods() {
+				static PySequenceMethods methods = {
+					Yapic_GetTypeMethod(Self, __sq_len__),
+					Yapic_GetTypeMethod(Self, __sq_concat__),
+					Yapic_GetTypeMethod(Self, __sq_repeat__),
+					Yapic_GetTypeMethod(Self, __sq_getitem__),
+					NULL, // TODO: was_sq_slice ???
+					Yapic_GetTypeMethod(Self, __sq_setitem__),
+					NULL, // TODO: was_sq_ass_slice ???
+					Yapic_GetTypeMethod(Self, __sq_contains__),
+					Yapic_GetTypeMethod(Self, __sq_inplace_concat__),
+					Yapic_GetTypeMethod(Self, __sq_inplace_repeat__)
+				};
+				return &methods;
 			}
 	};
 

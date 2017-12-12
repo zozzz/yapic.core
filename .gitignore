@@ -9,3 +9,4 @@
 .cache
 .testenv
 .vscode
+.mypy_cache
