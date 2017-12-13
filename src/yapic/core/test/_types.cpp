@@ -65,6 +65,14 @@ public:
 };
 
 
+class Base: public Yapic::Type<Base, Yapic::Object> {
+public:
+	static inline int Flags() {
+		return Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+	}
+};
+
+
 class Module : public Yapic::Module<Module> {
 public:
 	static constexpr const char* __name__ = "yapic.core.test._types";
@@ -72,7 +80,8 @@ public:
 	static inline int __init__(PyObject* module, Module* state) {
 		if (!A::Register(module) ||
 			!B::Register(module) ||
-			!S::Register(module)) {
+			!S::Register(module) ||
+			!Base::Register(module)) {
 			return -1;
 		}
 		return 0;

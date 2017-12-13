@@ -28,3 +28,19 @@ def test_types_sequence():
     s = _types.S()
 
     assert len(s) == 33
+
+
+def test_types_no_subclass():
+    with pytest.raises(TypeError) as exc:
+        class Sub(_types.A):
+            pass
+
+    exc.match("type 'A' is not an acceptable base type")
+
+
+def test_types_yes_subclass():
+    class Sub(_types.Base):
+        pass
+
+    assert isinstance(Sub(), _types.Base)
+    assert issubclass(Sub, _types.Base)

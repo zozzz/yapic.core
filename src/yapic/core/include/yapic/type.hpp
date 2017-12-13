@@ -222,7 +222,7 @@ namespace Yapic {
 			}
 
 			static inline int Flags() {
-				return Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+				return Py_TPFLAGS_DEFAULT;
 			}
 
 			static inline const PyTypeObject* _BaseType() {
