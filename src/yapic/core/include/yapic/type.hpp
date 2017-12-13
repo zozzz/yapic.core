@@ -195,13 +195,17 @@ namespace Yapic {
 			}
 
 			static inline bool Register(PyObject* module) {
+				return Self::Register(module, Self::Name());
+			}
+
+			static inline bool Register(PyObject* module, const char* name) {
 				PyTypeObject* type = const_cast<PyTypeObject*>(Self::PyType());
 				type->tp_base = const_cast<PyTypeObject*>(Self::_BaseType());
 				if (PyType_Ready(type) < 0) {
 					return false;
 				}
 				Py_INCREF(type);
-				if (PyModule_AddObject(module, Self::Name(), (PyObject*) type) < 0) {
+				if (PyModule_AddObject(module, name, (PyObject*) type) < 0) {
 					Py_DECREF(type);
 					return false;
 				}
