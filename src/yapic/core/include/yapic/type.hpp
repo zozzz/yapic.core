@@ -225,7 +225,7 @@ namespace Yapic {
 				return NULL;
 			}
 
-			static inline int Flags() {
+			static inline unsigned long Flags() {
 				return Py_TPFLAGS_DEFAULT;
 			}
 
