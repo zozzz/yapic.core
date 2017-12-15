@@ -72,6 +72,55 @@ public:
 	}
 };
 
+#define NumberP_M(n, i) \
+	static PyObject* n(PyObject* self, PyObject* other) { \
+		return PyLong_FromLong(i); \
+	}
+
+class NumberP : public Yapic::Type<NumberP, Yapic::Object> {
+public:
+	static int __bool__(PyObject* self) {
+		return 0;
+	}
+
+	NumberP_M(__add__, 1)
+	NumberP_M(__sub__, 2)
+	NumberP_M(__mul__, 3)
+	NumberP_M(__mod__, 4)
+	NumberP_M(__divmod__, 5)
+	NumberP_M(__pow__, 6)
+	NumberP_M(__neg__, 7)
+	NumberP_M(__pos__, 8)
+	NumberP_M(__abs__, 9)
+	NumberP_M(__invert__, 10)
+	NumberP_M(__lshift__, 11)
+	NumberP_M(__rshift__, 12)
+	NumberP_M(__and__, 13)
+	NumberP_M(__xor__, 14)
+	NumberP_M(__or__, 15)
+	NumberP_M(__int__, 16)
+	static PyObject* __float__(PyObject* self) {
+		return PyFloat_FromDouble(17.0);
+	}
+	NumberP_M(__iadd__, 18)
+	NumberP_M(__isub__, 19)
+	NumberP_M(__imul__, 20)
+	NumberP_M(__imod__, 21)
+	NumberP_M(__ipow__, 22)
+	NumberP_M(__ilshift__, 23)
+	NumberP_M(__irshift__, 24)
+	NumberP_M(__iand__, 25)
+	NumberP_M(__ixor__, 26)
+	NumberP_M(__ior__, 27)
+	NumberP_M(__floordiv__, 28)
+	NumberP_M(__truediv__, 29)
+	NumberP_M(__ifloordiv__, 30)
+	NumberP_M(__itruediv__, 31)
+	NumberP_M(__index__, 32)
+	NumberP_M(__matmul__, 33)
+	NumberP_M(__imatmul__, 34)
+};
+
 
 class Module : public Yapic::Module<Module> {
 public:
@@ -81,7 +130,8 @@ public:
 		if (!A::Register(module) ||
 			!B::Register(module) ||
 			!S::Register(module) ||
-			!Base::Register(module)) {
+			!Base::Register(module) ||
+			!NumberP::Register(module)) {
 			return -1;
 		}
 		return 0;

@@ -137,6 +137,78 @@ namespace Yapic {
 
 	// async protocol
 	// number protocol
+	Yapic_MethodChecker(__add__, binaryfunc, NULL);
+	Yapic_MethodChecker(__sub__, binaryfunc, NULL);
+	Yapic_MethodChecker(__mul__, binaryfunc, NULL);
+	Yapic_MethodChecker(__mod__, binaryfunc, NULL);
+	Yapic_MethodChecker(__divmod__, binaryfunc, NULL);
+	Yapic_MethodChecker(__pow__, ternaryfunc, NULL);
+	Yapic_MethodChecker(__neg__, unaryfunc, NULL);
+	Yapic_MethodChecker(__pos__, unaryfunc, NULL);
+	Yapic_MethodChecker(__abs__, unaryfunc, NULL);
+	Yapic_MethodChecker(__bool__, inquiry, NULL);
+	Yapic_MethodChecker(__invert__, unaryfunc, NULL);
+	Yapic_MethodChecker(__lshift__, binaryfunc, NULL);
+	Yapic_MethodChecker(__rshift__, binaryfunc, NULL);
+	Yapic_MethodChecker(__and__, binaryfunc, NULL);
+	Yapic_MethodChecker(__xor__, binaryfunc, NULL);
+	Yapic_MethodChecker(__or__, binaryfunc, NULL);
+	Yapic_MethodChecker(__int__, unaryfunc, NULL);
+	Yapic_MethodChecker(__float__, unaryfunc, NULL);
+	Yapic_MethodChecker(__iadd__, binaryfunc, NULL);
+	Yapic_MethodChecker(__isub__, binaryfunc, NULL);
+	Yapic_MethodChecker(__imul__, binaryfunc, NULL);
+	Yapic_MethodChecker(__imod__, binaryfunc, NULL);
+	Yapic_MethodChecker(__ipow__, ternaryfunc, NULL);
+	Yapic_MethodChecker(__ilshift__, binaryfunc, NULL);
+	Yapic_MethodChecker(__irshift__, binaryfunc, NULL);
+	Yapic_MethodChecker(__iand__, binaryfunc, NULL);
+	Yapic_MethodChecker(__ixor__, binaryfunc, NULL);
+	Yapic_MethodChecker(__ior__, binaryfunc, NULL);
+	Yapic_MethodChecker(__floordiv__, binaryfunc, NULL);
+	Yapic_MethodChecker(__truediv__, binaryfunc, NULL);
+	Yapic_MethodChecker(__ifloordiv__, binaryfunc, NULL);
+	Yapic_MethodChecker(__itruediv__, binaryfunc, NULL);
+	Yapic_MethodChecker(__index__, unaryfunc, NULL);
+	Yapic_MethodChecker(__matmul__, binaryfunc, NULL);
+	Yapic_MethodChecker(__imatmul__, binaryfunc, NULL);
+	#define Yapic_TypeHasNumberMethods(__cls) (\
+		Yapic_HasMethod(__cls, __add__) || \
+		Yapic_HasMethod(__cls, __sub__) || \
+		Yapic_HasMethod(__cls, __mul__) || \
+		Yapic_HasMethod(__cls, __mod__) || \
+		Yapic_HasMethod(__cls, __divmod__) || \
+		Yapic_HasMethod(__cls, __pow__) || \
+		Yapic_HasMethod(__cls, __neg__) || \
+		Yapic_HasMethod(__cls, __pos__) || \
+		Yapic_HasMethod(__cls, __abs__) || \
+		Yapic_HasMethod(__cls, __bool__) || \
+		Yapic_HasMethod(__cls, __invert__) || \
+		Yapic_HasMethod(__cls, __lshift__) || \
+		Yapic_HasMethod(__cls, __rshift__) || \
+		Yapic_HasMethod(__cls, __and__) || \
+		Yapic_HasMethod(__cls, __xor__) || \
+		Yapic_HasMethod(__cls, __or__) || \
+		Yapic_HasMethod(__cls, __int__) || \
+		Yapic_HasMethod(__cls, __float__) || \
+		Yapic_HasMethod(__cls, __iadd__) || \
+		Yapic_HasMethod(__cls, __isub__) || \
+		Yapic_HasMethod(__cls, __imul__) || \
+		Yapic_HasMethod(__cls, __imod__) || \
+		Yapic_HasMethod(__cls, __ipow__) || \
+		Yapic_HasMethod(__cls, __ilshift__) || \
+		Yapic_HasMethod(__cls, __irshift__) || \
+		Yapic_HasMethod(__cls, __iand__) || \
+		Yapic_HasMethod(__cls, __ixor__) || \
+		Yapic_HasMethod(__cls, __ior__) || \
+		Yapic_HasMethod(__cls, __floordiv__) || \
+		Yapic_HasMethod(__cls, __truediv__) || \
+		Yapic_HasMethod(__cls, __ifloordiv__) || \
+		Yapic_HasMethod(__cls, __itruediv__) || \
+		Yapic_HasMethod(__cls, __index__) || \
+		Yapic_HasMethod(__cls, __matmul__) || \
+		Yapic_HasMethod(__cls, __imatmul__))
+
 	// sequence protocol
 	Yapic_MethodChecker(__sq_len__, lenfunc, NULL);
 	Yapic_MethodChecker(__sq_concat__, binaryfunc, NULL);
@@ -251,7 +323,7 @@ namespace Yapic {
 					/* tp_setattr */ 		Yapic_GetTypeMethod(Self, __setattr__),
 					/* tp_as_async */ 		NULL,
 					/* tp_repr */ 			Yapic_GetTypeMethod(Self, __repr__),
-					/* tp_as_number */ 		NULL,
+					/* tp_as_number */ 		Yapic_TypeHasNumberMethods(Self) ? Self::_NumberMethods() : NULL,
 					/* tp_as_sequence */ 	Yapic_TypeHasSequenceMethods(Self) ? Self::_SequenceMethods() : NULL,
 					/* tp_as_mapping */ 	Yapic_TypeHasMappingMethods(Self) ? Self::_MappingMethods() : NULL,
 					/* tp_hash  */ 			Yapic_GetTypeMethod(Self, __hash__),
@@ -304,6 +376,48 @@ namespace Yapic {
 					Yapic_GetTypeMethod(Self, __sq_contains__),
 					Yapic_GetTypeMethod(Self, __sq_inplace_concat__),
 					Yapic_GetTypeMethod(Self, __sq_inplace_repeat__)
+				};
+				return &methods;
+			}
+
+			static inline PyNumberMethods* _NumberMethods() {
+				static PyNumberMethods methods = {
+					Yapic_GetTypeMethod(Self, __add__),
+					Yapic_GetTypeMethod(Self, __sub__),
+					Yapic_GetTypeMethod(Self, __mul__),
+					Yapic_GetTypeMethod(Self, __mod__),
+					Yapic_GetTypeMethod(Self, __divmod__),
+					Yapic_GetTypeMethod(Self, __pow__),
+					Yapic_GetTypeMethod(Self, __neg__),
+					Yapic_GetTypeMethod(Self, __pos__),
+					Yapic_GetTypeMethod(Self, __abs__),
+					Yapic_GetTypeMethod(Self, __bool__),
+					Yapic_GetTypeMethod(Self, __invert__),
+					Yapic_GetTypeMethod(Self, __lshift__),
+					Yapic_GetTypeMethod(Self, __rshift__),
+					Yapic_GetTypeMethod(Self, __and__),
+					Yapic_GetTypeMethod(Self, __xor__),
+					Yapic_GetTypeMethod(Self, __or__),
+					Yapic_GetTypeMethod(Self, __int__),
+					NULL, // TODO: maybe reverese operation?
+					Yapic_GetTypeMethod(Self, __float__),
+					Yapic_GetTypeMethod(Self, __iadd__),
+					Yapic_GetTypeMethod(Self, __isub__),
+					Yapic_GetTypeMethod(Self, __imul__),
+					Yapic_GetTypeMethod(Self, __imod__),
+					Yapic_GetTypeMethod(Self, __ipow__),
+					Yapic_GetTypeMethod(Self, __ilshift__),
+					Yapic_GetTypeMethod(Self, __irshift__),
+					Yapic_GetTypeMethod(Self, __iand__),
+					Yapic_GetTypeMethod(Self, __ixor__),
+					Yapic_GetTypeMethod(Self, __ior__),
+					Yapic_GetTypeMethod(Self, __floordiv__),
+					Yapic_GetTypeMethod(Self, __truediv__),
+					Yapic_GetTypeMethod(Self, __ifloordiv__),
+					Yapic_GetTypeMethod(Self, __itruediv__),
+					Yapic_GetTypeMethod(Self, __index__),
+					Yapic_GetTypeMethod(Self, __matmul__),
+					Yapic_GetTypeMethod(Self, __imatmul__)
 				};
 				return &methods;
 			}
