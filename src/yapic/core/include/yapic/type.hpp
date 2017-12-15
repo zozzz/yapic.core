@@ -240,20 +240,76 @@ namespace Yapic {
 	// buffer protocol
 
 
-	template<typename _self, typename _super>
+	template<typename _self>
+	class TypeAllocator {
+		public:
+			static inline PyObject* Alloc(PyTypeObject* type) {
+				assert(type != NULL);
+				assert((type->tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);
+				return type->tp_alloc(type, type->tp_basicsize);
+			}
+
+			static inline void Dealloc(void* obj) {
+				assert(obj != NULL);
+				assert(Py_TYPE(obj)->tp_free != NULL);
+				Py_TYPE(obj)->tp_free(obj);
+			}
+	};
+
+
+	template<typename _self, int size>
+	class FreeList: public TypeAllocator<_self> {
+		public:
+			using TA = TypeAllocator<_self>;
+
+			static inline PyObject* Alloc(PyTypeObject* type) {
+				int& _free = _Free();
+				if (_free > 0) {
+					_self* res = _List()[--_free];
+					PyObject_INIT((PyObject*) res, type);
+					return (PyObject*) res;
+				}
+				return TA::Alloc(type);
+			}
+
+			static inline void Dealloc(void* obj) {
+				int& _free = _Free();
+				if (_free < size) {
+					_List()[_free++] = (_self*) obj;
+				} else {
+					TA::Dealloc(obj);
+				}
+			}
+
+			static inline _self** _List() {
+				static _self* list[size] = {NULL};
+				return list;
+			}
+
+			static inline int& _Free() {
+				static int _free = 0;
+				return _free;
+			}
+	};
+
+
+	template<typename _self, typename _super, typename _allocator=TypeAllocator<_self>>
 	class Type: public _super {
 		public:
 			using Self = _self;
 			using Super = _super;
+			using Allocator = _allocator;
 
 			static inline Self* Alloc() {
 				return Alloc(const_cast<PyTypeObject*>(Self::PyType()));
 			}
 
-			static inline Self* Alloc(PyTypeObject* type) {
-				assert(type != NULL);
-				assert((type->tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);
-				return (Self*) type->tp_alloc(type, sizeof(Self));
+			static inline PyObject* Alloc(PyTypeObject* type) {
+				return Allocator::Alloc(type);
+			}
+
+			static inline void __dealloc__(void* self) {
+				Allocator::Dealloc(self);
 			}
 
 			static inline bool Check(void* o) {
@@ -287,10 +343,6 @@ namespace Yapic {
 			static inline const char* Name() {
 				static const ClassBaseName<Self> name;
 				return name.Value();
-			}
-
-			static inline void __dealloc__(void* self) {
-				Py_TYPE(self)->tp_free((PyObject*) self);
 			}
 
 			static inline PyMethodDef* __methods__() {

@@ -92,3 +92,22 @@ def test_types_yes_subclass():
 
     assert isinstance(Sub(), _types.Base)
     assert issubclass(Sub, _types.Base)
+
+
+def test_types_freelist():
+    x = []
+    for i in range(0, 20):
+        t = _types.FR()
+        assert isinstance(t, _types.FR)
+        x.append(t)
+
+    for fr in x:
+        assert isinstance(fr, _types.FR)
+
+    del x
+
+    for i in range(0, 20):
+        t = _types.FR()
+        assert isinstance(t, _types.FR)
+
+

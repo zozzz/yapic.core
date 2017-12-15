@@ -122,6 +122,14 @@ public:
 };
 
 
+class FR: public Yapic::Type<FR, Yapic::Object, Yapic::FreeList<FR, 10>> {
+public:
+	static PyObject* __new__(PyTypeObject* type, PyObject* args, PyObject* kwargs) {
+		return (PyObject*) Self::Alloc(type);
+	}
+};
+
+
 class Module : public Yapic::Module<Module> {
 public:
 	static constexpr const char* __name__ = "yapic.core.test._types";
@@ -131,7 +139,8 @@ public:
 			!B::Register(module) ||
 			!S::Register(module) ||
 			!Base::Register(module) ||
-			!NumberP::Register(module)) {
+			!NumberP::Register(module) ||
+			!FR::Register(module)) {
 			return -1;
 		}
 		return 0;
