@@ -243,10 +243,10 @@ namespace Yapic {
 	template<typename _self>
 	class TypeAllocator {
 		public:
-			static inline PyObject* Alloc(PyTypeObject* type) {
+			static inline _self* Alloc(PyTypeObject* type) {
 				assert(type != NULL);
 				assert((type->tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);
-				return type->tp_alloc(type, type->tp_basicsize);
+				return (_self*) type->tp_alloc(type, type->tp_basicsize);
 			}
 
 			static inline void Dealloc(void* obj) {
@@ -262,12 +262,12 @@ namespace Yapic {
 		public:
 			using TA = TypeAllocator<_self>;
 
-			static inline PyObject* Alloc(PyTypeObject* type) {
+			static inline _self* Alloc(PyTypeObject* type) {
 				int& _free = _Free();
 				if (_free > 0) {
 					_self* res = _List()[--_free];
 					PyObject_INIT((PyObject*) res, type);
-					return (PyObject*) res;
+					return (_self*) res;
 				}
 				return TA::Alloc(type);
 			}
@@ -304,7 +304,7 @@ namespace Yapic {
 				return Alloc(const_cast<PyTypeObject*>(Self::PyType()));
 			}
 
-			static inline PyObject* Alloc(PyTypeObject* type) {
+			static inline Self* Alloc(PyTypeObject* type) {
 				return Allocator::Alloc(type);
 			}
 
