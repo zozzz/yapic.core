@@ -9,7 +9,21 @@ using ModuleExc = Yapic::ModuleExc<Module>;
 
 
 class A: public Yapic::Type<A, Yapic::Object> {
+public:
+	int member;
 
+	Yapic_MEMBERS_BEGIN
+		Yapic_Member(member, T_INT, READONLY, "")
+	Yapic_MEMBERS_END
+
+	static A* __new__(PyTypeObject* type, PyObject* args, PyObject* kwargs) {
+		A* self = Self::Alloc(type);
+		if (self == NULL) {
+			return NULL;
+		}
+		self->member = 42;
+		return self;
+	}
 };
 
 

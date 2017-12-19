@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <typeinfo>
 #include <Python.h>
+#include <structmember.h>
 
 // XXX: decltype helyett esetleg typeof kell GCC-nél
 // TODO: kicsit típus biztosabbá tenni a függvény lekérdezéseket
@@ -349,6 +350,10 @@ namespace Yapic {
 				return NULL;
 			}
 
+			static inline PyMemberDef* __members__() {
+				return NULL;
+			}
+
 			static inline unsigned long Flags() {
 				return Py_TPFLAGS_DEFAULT;
 			}
@@ -393,7 +398,7 @@ namespace Yapic {
 					/* tp_iter */ 			Yapic_GetTypeMethod(Self, __iter__),
 					/* tp_iternext */ 		Yapic_GetTypeMethod(Self, __next__),
 					/* tp_methods */ 		const_cast<PyMethodDef*>(Self::__methods__()),
-					/* tp_members */ 		NULL,
+					/* tp_members */ 		const_cast<PyMemberDef*>(Self::__members__()),
 					/* tp_getset */ 		NULL,
 					/* tp_base */ 			NULL,
 					/* tp_dict */ 			NULL,

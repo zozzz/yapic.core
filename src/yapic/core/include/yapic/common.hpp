@@ -16,6 +16,20 @@
 	}
 
 
+#define Yapic_Member(__name, __type, __flag, __doc) \
+	{#__name, __type, offsetof(Self, __name), __flag, __doc},
+
+
+#define Yapic_MEMBERS_BEGIN \
+	static inline const PyMemberDef* __members__() { \
+		static const PyMemberDef members[] = {
+
+#define Yapic_MEMBERS_END \
+			{NULL, 0, 0, 0, NULL} \
+		}; \
+		return members; \
+	}
+
 // #define Yapic_String(__name, __value) \
 // 	static constexpr const char* __name = __value;
 
