@@ -185,6 +185,7 @@ template<typename _self>
 class Module {
 	public:
 		using Self = _self;
+		using Super = Module<_self>;
 		using VarsList = std::vector<_ModuleConst<Self>*>;
 
 		static constexpr const char* __doc__ = NULL;

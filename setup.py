@@ -26,6 +26,7 @@ class PyTest(TestCommand):
         "src/yapic/core/test/_bad_import2.cpp",
         "src/yapic/core/test/_string_builder.cpp",
         "src/yapic/core/test/_types.cpp",
+        "src/yapic/core/test/_thread.cpp",
     ]
 
     def initialize_options(self):
