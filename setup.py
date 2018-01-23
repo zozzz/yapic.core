@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import itertools
 from pathlib import Path
 from glob import glob
 from setuptools import setup, Command, Extension
@@ -40,7 +41,10 @@ class PyTest(TestCommand):
             self.pytest_args += " " + self.file.replace("\\", "/")
 
     def run(self):
-        installed_dists = self.install_dists(self.distribution)
+        dist = self.distribution
+        ir_d = dist.fetch_build_eggs(dist.install_requires or [])
+        tr_d = dist.fetch_build_eggs(dist.tests_require or [])
+        installed_dists = itertools.chain(ir_d, tr_d)
         for dp in map(lambda x: x.location, installed_dists):
             if dp not in sys.path:
                 sys.path.insert(0, dp)
@@ -74,12 +78,14 @@ class PyTest(TestCommand):
         if not self.distribution.ext_modules:
             self.distribution.ext_modules = []
         self.distribution.packages += ["yapic.core.test"]
+
         define_macros = {}
+        undef_macros = []
+        extra_compile_args = []
 
         if sys.platform == "win32":
             define_macros["UNICODE"] = 1
-            undef_macros = []
-            extra_compile_args = []
+
             # extra_compile_args = ["/FC", Path(__file__).absolute().path.joinpath("src", "yapic", "")]
             # extra_compile_args.append("/P")  # Preprocessor outpout
 
@@ -99,6 +105,16 @@ class PyTest(TestCommand):
                 pass
                 # extra_compile_args.append("/MT")
                 # extra_compile_args.append("/MD")
+        else:
+            extra_compile_args.append("-std=c++11")
+            extra_compile_args.append("-Wunknown-pragmas")
+
+            if sys.executable.endswith("-dbg"):
+                undef_macros.append("NDEBUG")
+                define_macros["Py_DEBUG"] = 1
+                define_macros["_DEBUG"] = 1
+            else:
+                extra_compile_args.append("-O3")
 
         depends = glob("src/yapic/core/include/**/*.hpp")
         for m in self.ext_modules:

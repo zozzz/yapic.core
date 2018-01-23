@@ -16,15 +16,31 @@
 	template<class T> \
 	static inline auto Optional ## __name (decltype(&T::__name)*) -> __type { return reinterpret_cast<__type>(&T::__name); } \
 	template<class T> \
-	static inline auto Optional ## __name (...) -> __type { return __default; }
+	static inline auto Optional ## __name (...) -> __type { return __default; } \
+	template<class T> \
+	static inline auto Call ## __name (decltype(&T::__name)*) -> __type { return T::__name(); } \
+	template<class T> \
+	static inline auto Call ## __name (...) -> auto { return __default; }
+
 
 #define Yapic_HasMethod(__cls, __method) \
 	(Has ## __method <__cls> :: Value)
 
-#define Yapic_GetTypeMethod(__cls, __method) \
+#define Yapic_GetMethod(__cls, __method) \
 	(Optional ## __method <__cls> (NULL))
 
+#define Yapic_CallOptionalMethod(__cls, __method) \
+	(Call ## __method <__cls> (NULL))
+
 namespace Yapic {
+
+	// internal
+	typedef Py_ssize_t (*flagsfunc)();
+	Yapic_MethodChecker(Flags, flagsfunc, Py_TPFLAGS_DEFAULT);
+	typedef PyMethodDef* (*methodsfunc)();
+	Yapic_MethodChecker(Methods, methodsfunc, NULL);
+	typedef PyMemberDef* (*membersfunc)();
+	Yapic_MethodChecker(Members, membersfunc, NULL);
 
 	// basic
 	Yapic_MethodChecker(__dealloc__, destructor, NULL);
@@ -280,40 +296,40 @@ namespace Yapic {
 				/* tp_name */ 			this->Name(),
 				/* tp_basicsize */ 		sizeof(Impl),
 				/* tp_itemsize */ 		0,
-				/* tp_dealloc */ 		(destructor) Yapic_GetTypeMethod(Impl, __dealloc__),
+				/* tp_dealloc */ 		(destructor) Yapic_GetMethod(Impl, __dealloc__),
 				/* tp_print */ 			NULL,
-				/* tp_getattr */ 		Yapic_GetTypeMethod(Impl, __getattr__),
-				/* tp_setattr */ 		Yapic_GetTypeMethod(Impl, __setattr__),
+				/* tp_getattr */ 		Yapic_GetMethod(Impl, __getattr__),
+				/* tp_setattr */ 		Yapic_GetMethod(Impl, __setattr__),
 				/* tp_as_async */ 		NULL,
-				/* tp_repr */ 			Yapic_GetTypeMethod(Impl, __repr__),
-				/* tp_as_number */ 		Yapic_TypeHasNumberMethods(Impl) ? Type<Impl>::NumberMethods() : NULL,
-				/* tp_as_sequence */ 	Yapic_TypeHasSequenceMethods(Impl) ? Type<Impl>::SequenceMethods() : NULL,
-				/* tp_as_mapping */ 	Yapic_TypeHasMappingMethods(Impl) ? Type<Impl>::MappingMethods() : NULL,
-				/* tp_hash  */ 			Yapic_GetTypeMethod(Impl, __hash__),
-				/* tp_call */ 			Yapic_GetTypeMethod(Impl, __call__),
-				/* tp_str */ 			Yapic_GetTypeMethod(Impl, __str__),
-				/* tp_getattro */ 		Yapic_GetTypeMethod(Impl, __getattro__),
-				/* tp_setattro */ 		Yapic_GetTypeMethod(Impl, __setattro__),
+				/* tp_repr */ 			Yapic_GetMethod(Impl, __repr__),
+				/* tp_as_number */ 		NULL, // Yapic_TypeHasNumberMethods(Impl) ? Type<Impl>::NumberMethods() : NULL,
+				/* tp_as_sequence */ 	NULL, // Yapic_TypeHasSequenceMethods(Impl) ? Type<Impl>::SequenceMethods() : NULL,
+				/* tp_as_mapping */ 	NULL, // Yapic_TypeHasMappingMethods(Impl) ? Type<Impl>::MappingMethods() : NULL,
+				/* tp_hash  */ 			Yapic_GetMethod(Impl, __hash__),
+				/* tp_call */ 			Yapic_GetMethod(Impl, __call__),
+				/* tp_str */ 			Yapic_GetMethod(Impl, __str__),
+				/* tp_getattro */ 		Yapic_GetMethod(Impl, __getattro__),
+				/* tp_setattro */ 		Yapic_GetMethod(Impl, __setattro__),
 				/* tp_as_buffer */ 		NULL,
-				/* tp_flags */ 			Py_TPFLAGS_DEFAULT, // Impl::Flags(),
+				/* tp_flags */ 			Yapic_CallOptionalMethod(Impl, Flags),
 				/* tp_doc */ 			NULL,
-				/* tp_traverse */ 		Yapic_GetTypeMethod(Impl, __traverse__),
-				/* tp_clear */ 			Yapic_GetTypeMethod(Impl, __clear__),
-				/* tp_richcompare */ 	Yapic_GetTypeMethod(Impl, __cmp__),
+				/* tp_traverse */ 		Yapic_GetMethod(Impl, __traverse__),
+				/* tp_clear */ 			Yapic_GetMethod(Impl, __clear__),
+				/* tp_richcompare */ 	Yapic_GetMethod(Impl, __cmp__),
 				/* tp_weaklistoffset */ NULL,
-				/* tp_iter */ 			Yapic_GetTypeMethod(Impl, __iter__),
-				/* tp_iternext */ 		Yapic_GetTypeMethod(Impl, __next__),
-				/* tp_methods */ 		NULL, //const_cast<PyMethodDef*>(Impl::__methods__()),
-				/* tp_members */ 		NULL, //const_cast<PyMemberDef*>(Impl::__members__()),
+				/* tp_iter */ 			Yapic_GetMethod(Impl, __iter__),
+				/* tp_iternext */ 		Yapic_GetMethod(Impl, __next__),
+				/* tp_methods */ 		Yapic_CallOptionalMethod(Impl, Methods),
+				/* tp_members */ 		Yapic_CallOptionalMethod(Impl, Members),
 				/* tp_getset */ 		NULL,
 				/* tp_base */ 			NULL,
 				/* tp_dict */ 			NULL,
-				/* tp_descr_get */ 		Yapic_GetTypeMethod(Impl, __get__),
-				/* tp_descr_set */ 		Yapic_GetTypeMethod(Impl, __set__),
+				/* tp_descr_get */ 		Yapic_GetMethod(Impl, __get__),
+				/* tp_descr_set */ 		Yapic_GetMethod(Impl, __set__),
 				/* tp_dictoffset */ 	NULL,
-				/* tp_init */ 			Yapic_GetTypeMethod(Impl, __init__),
-				/* tp_alloc */ 			Yapic_GetTypeMethod(Impl, __alloc__),
-				/* tp_new */ 			Yapic_GetTypeMethod(Impl, __new__)
+				/* tp_init */ 			Yapic_GetMethod(Impl, __init__),
+				/* tp_alloc */ 			Yapic_GetMethod(Impl, __alloc__),
+				/* tp_new */ 			Yapic_GetMethod(Impl, __new__)
 			};
 		}
 
@@ -332,65 +348,65 @@ namespace Yapic {
 
 		static inline PyMappingMethods MappingMethods() {
 			return {
-				Yapic_GetTypeMethod(Impl, __len__),
-				Yapic_GetTypeMethod(Impl, __getitem__),
-				Yapic_GetTypeMethod(Impl, __setitem__)
+				Yapic_GetMethod(Impl, __len__),
+				Yapic_GetMethod(Impl, __getitem__),
+				Yapic_GetMethod(Impl, __setitem__)
 			};
 		}
 
 		static inline PySequenceMethods SequenceMethods() {
 			return {
-				Yapic_GetTypeMethod(Impl, __len__),
-				Yapic_GetTypeMethod(Impl, __concat__),
-				Yapic_GetTypeMethod(Impl, __repeat__),
-				Yapic_GetTypeMethod(Impl, __sq_getitem__),
+				Yapic_GetMethod(Impl, __len__),
+				Yapic_GetMethod(Impl, __concat__),
+				Yapic_GetMethod(Impl, __repeat__),
+				Yapic_GetMethod(Impl, __sq_getitem__),
 				NULL, // TODO: was_sq_slice ???
-				Yapic_GetTypeMethod(Impl, __sq_setitem__),
+				Yapic_GetMethod(Impl, __sq_setitem__),
 				NULL, // TODO: was_sq_ass_slice ???
-				Yapic_GetTypeMethod(Impl, __contains__),
-				Yapic_GetTypeMethod(Impl, __inplace_concat__),
-				Yapic_GetTypeMethod(Impl, __inplace_repeat__)
+				Yapic_GetMethod(Impl, __contains__),
+				Yapic_GetMethod(Impl, __inplace_concat__),
+				Yapic_GetMethod(Impl, __inplace_repeat__)
 			};
 		}
 
 		static inline PyNumberMethods NumberMethods() {
 			return {
-				Yapic_GetTypeMethod(Impl, __add__),
-				Yapic_GetTypeMethod(Impl, __sub__),
-				Yapic_GetTypeMethod(Impl, __mul__),
-				Yapic_GetTypeMethod(Impl, __mod__),
-				Yapic_GetTypeMethod(Impl, __divmod__),
-				Yapic_GetTypeMethod(Impl, __pow__),
-				Yapic_GetTypeMethod(Impl, __neg__),
-				Yapic_GetTypeMethod(Impl, __pos__),
-				Yapic_GetTypeMethod(Impl, __abs__),
-				Yapic_GetTypeMethod(Impl, __bool__),
-				Yapic_GetTypeMethod(Impl, __invert__),
-				Yapic_GetTypeMethod(Impl, __lshift__),
-				Yapic_GetTypeMethod(Impl, __rshift__),
-				Yapic_GetTypeMethod(Impl, __and__),
-				Yapic_GetTypeMethod(Impl, __xor__),
-				Yapic_GetTypeMethod(Impl, __or__),
-				Yapic_GetTypeMethod(Impl, __int__),
+				Yapic_GetMethod(Impl, __add__),
+				Yapic_GetMethod(Impl, __sub__),
+				Yapic_GetMethod(Impl, __mul__),
+				Yapic_GetMethod(Impl, __mod__),
+				Yapic_GetMethod(Impl, __divmod__),
+				Yapic_GetMethod(Impl, __pow__),
+				Yapic_GetMethod(Impl, __neg__),
+				Yapic_GetMethod(Impl, __pos__),
+				Yapic_GetMethod(Impl, __abs__),
+				Yapic_GetMethod(Impl, __bool__),
+				Yapic_GetMethod(Impl, __invert__),
+				Yapic_GetMethod(Impl, __lshift__),
+				Yapic_GetMethod(Impl, __rshift__),
+				Yapic_GetMethod(Impl, __and__),
+				Yapic_GetMethod(Impl, __xor__),
+				Yapic_GetMethod(Impl, __or__),
+				Yapic_GetMethod(Impl, __int__),
 				NULL, // TODO: maybe reverese operation?
-				Yapic_GetTypeMethod(Impl, __float__),
-				Yapic_GetTypeMethod(Impl, __iadd__),
-				Yapic_GetTypeMethod(Impl, __isub__),
-				Yapic_GetTypeMethod(Impl, __imul__),
-				Yapic_GetTypeMethod(Impl, __imod__),
-				Yapic_GetTypeMethod(Impl, __ipow__),
-				Yapic_GetTypeMethod(Impl, __ilshift__),
-				Yapic_GetTypeMethod(Impl, __irshift__),
-				Yapic_GetTypeMethod(Impl, __iand__),
-				Yapic_GetTypeMethod(Impl, __ixor__),
-				Yapic_GetTypeMethod(Impl, __ior__),
-				Yapic_GetTypeMethod(Impl, __floordiv__),
-				Yapic_GetTypeMethod(Impl, __truediv__),
-				Yapic_GetTypeMethod(Impl, __ifloordiv__),
-				Yapic_GetTypeMethod(Impl, __itruediv__),
-				Yapic_GetTypeMethod(Impl, __index__),
-				Yapic_GetTypeMethod(Impl, __matmul__),
-				Yapic_GetTypeMethod(Impl, __imatmul__)
+				Yapic_GetMethod(Impl, __float__),
+				Yapic_GetMethod(Impl, __iadd__),
+				Yapic_GetMethod(Impl, __isub__),
+				Yapic_GetMethod(Impl, __imul__),
+				Yapic_GetMethod(Impl, __imod__),
+				Yapic_GetMethod(Impl, __ipow__),
+				Yapic_GetMethod(Impl, __ilshift__),
+				Yapic_GetMethod(Impl, __irshift__),
+				Yapic_GetMethod(Impl, __iand__),
+				Yapic_GetMethod(Impl, __ixor__),
+				Yapic_GetMethod(Impl, __ior__),
+				Yapic_GetMethod(Impl, __floordiv__),
+				Yapic_GetMethod(Impl, __truediv__),
+				Yapic_GetMethod(Impl, __ifloordiv__),
+				Yapic_GetMethod(Impl, __itruediv__),
+				Yapic_GetMethod(Impl, __index__),
+				Yapic_GetMethod(Impl, __matmul__),
+				Yapic_GetMethod(Impl, __imatmul__)
 			};
 		}
 	};
