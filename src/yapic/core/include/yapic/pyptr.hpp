@@ -18,55 +18,51 @@ template<typename O>
 class _PyPtr {
 
 	public:
-		inline _PyPtr(O* var): _var(var) {  }
-		inline ~_PyPtr() { Py_XDECREF(_var); }
-		inline O& operator* () const { return *_var; }
-		inline O* operator-> () const { return _var; }
+		inline _PyPtr(O* value): ref(value) {  }
+		inline ~_PyPtr() { Py_XDECREF(this->ref); }
+		inline O& operator* () const { assert(this->ref != NULL); return *this->ref; }
+		inline O* operator-> () const { assert(this->ref != NULL); return this->ref; }
+		inline operator bool() const { return this->ref != NULL; }
 
 		inline _PyPtr<O>& operator= (const _PyPtr<O>& other) {
 			if (this != &other) {
-				Py_XDECREF(_var);
-				Py_XINCREF(other._var);
-				_var = other._var;
+				Py_XDECREF(this->ref);
+				Py_XINCREF(other.ref);
+				this->ref = other.ref;
 			}
 			return *this;
 		}
 
 		inline _PyPtr<O>& operator= (_PyPtr<O>&& other) {
 			if (this != &other) {
-				Py_XDECREF(_var);
-				_var = other.Steal();
+				Py_XDECREF(this->ref);
+				this->ref = other.Steal();
 			}
 			return *this;
 		}
 
 		inline _PyPtr<O>& operator= (const O* other) = delete;
 
-		// deprecated
-		inline operator PyTupleObject* () const { return (PyTupleObject*) _var; }
-		inline operator PyDictObject* () const { return (PyDictObject*) _var; }
-		inline operator PyVarObject* () const { return (PyVarObject*) _var; }
-		inline operator PyLongObject* () const { return (PyLongObject*) _var; }
-		inline operator PyFloatObject* () const { return (PyFloatObject*) _var; }
-		inline operator PyByteArrayObject* () const { return (PyByteArrayObject*) _var; }
-		inline operator PyBytesObject* () const { return (PyBytesObject*) _var; }
-		inline operator PyUnicodeObject* () const { return (PyUnicodeObject*) _var; }
-		inline operator PyTypeObject* () const { return (PyTypeObject*) _var; }
-		inline operator PyCodeObject* () const { return (PyCodeObject*) _var; }
-		inline operator PyComplexObject* () const { return (PyComplexObject*) _var; }
-
 		template<typename AS>
-		inline AS* As() const { return (AS*) _var; }
-		inline PyObject* AsObject() const { return (PyObject*) _var; };
+		inline AS* As() const { return (AS*) this->ref; }
+		inline PyObject* Ref() const { return (PyObject*) this->ref; };
 
-		inline bool IsNull() const { return _var == NULL; }
-		inline bool IsValid() const { return _var != NULL; }
-		inline void Incref() { assert(_var != NULL); Py_INCREF(_var); }
-		inline void Decref() { assert(_var != NULL); Py_DECREF(_var); }
-		inline O* Steal() { O* tmp = _var; _var = NULL; return tmp; }
-		inline void Clear() { Py_CLEAR(_var); }
+		template<typename V>
+		inline bool Is(V* value) const { return this->ref == value; }
+		inline bool IsNull() const { return this->ref == NULL; }
+		inline bool IsNone() const { return this->ref == Py_None; }
+		inline bool IsTrue() const { return this->ref == Py_True; }
+		inline bool IsFalse() const { return this->ref == Py_False; }
+		inline bool IsExactly(PyTypeObject* type) const { assert(type != NULL && PyType_Check(type)); return Py_TYPE((PyObject*) self->ref) == type; }
+		inline bool IsInstance(PyTypeObject* type) const { assert(type != NULL && PyType_Check(type)); return PyObject_TypeCheck((PyObject*) this->ref, type); }
+
+		inline void Incref() { assert(this->ref != NULL); Py_INCREF(this->ref); }
+		inline void Decref() { assert(this->ref != NULL); Py_DECREF(this->ref); }
+		inline O* Steal() { O* tmp = this->ref; this->ref = NULL; return tmp; }
+		inline void Clear() { Py_CLEAR(this->ref); }
+		inline Py_ssize_t RefCount() const { return Py_REFCNT((PyObject*) this->ref); }
 	protected:
-		O* _var = NULL;
+		O* ref = NULL;
 };
 
 
@@ -75,13 +71,13 @@ class PyPtr: public _PyPtr<O> {
 public:
 	using _PyPtr<O>::_PyPtr;
 
-	inline operator O* () const { return (O*) _var; }
-	inline operator PyObject* () const { return (PyObject*) _var; }
+	inline operator O* () const { return (O*) this->ref; }
+	inline operator PyObject* () const { return (PyObject*) this->ref; }
 
 	inline _PyPtr<O>& operator= (const PyObject* other) {
-		if (_var != ((O*) other)) {
-			Py_XDECREF(_var);
-			_var = (O*) other;
+		if (this->ref != ((O*) other)) {
+			Py_XDECREF(this->ref);
+			this->ref = (O*) other;
 		}
 		return *this;
 	}
@@ -92,7 +88,7 @@ template<>
 class PyPtr<PyObject>: public _PyPtr<PyObject> {
 public:
 	using _PyPtr<PyObject>::_PyPtr;
-	inline operator PyObject* () const { return (PyObject*) _var; }
+	inline operator PyObject* () const { return (PyObject*) this->ref; }
 };
 
 

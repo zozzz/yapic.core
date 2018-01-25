@@ -19,15 +19,15 @@ class PyTest(TestCommand):
     ]
 
     ext_modules = [
-        "src/yapic/core/test/_module.cpp",
-        "src/yapic/core/test/_bad_module.cpp",
-        "src/yapic/core/test/_bad_module2.cpp",
-        "src/yapic/core/test/_import.cpp",
-        "src/yapic/core/test/_bad_import.cpp",
-        "src/yapic/core/test/_bad_import2.cpp",
-        "src/yapic/core/test/_string_builder.cpp",
+        # "src/yapic/core/test/_module.cpp",
+        # "src/yapic/core/test/_bad_module.cpp",
+        # "src/yapic/core/test/_bad_module2.cpp",
+        # "src/yapic/core/test/_import.cpp",
+        # "src/yapic/core/test/_bad_import.cpp",
+        # "src/yapic/core/test/_bad_import2.cpp",
+        # "src/yapic/core/test/_string_builder.cpp",
         "src/yapic/core/test/_types.cpp",
-        "src/yapic/core/test/_thread.cpp",
+        # "src/yapic/core/test/_thread.cpp",
     ]
 
     def initialize_options(self):
