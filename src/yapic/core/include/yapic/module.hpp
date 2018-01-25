@@ -2,6 +2,9 @@
 #define M113C3DD_7133_EC86_1330_6B1A54E57AEE
 
 
+#include <Python.h>
+#include "./methods.hpp"
+
 // usage: YAPIC_MODULE_INIT("package", "module", Module)
 #define YAPIC_MODULE_INIT(__package, __name, __module) \
 	PyMODINIT_FUNC PyInit_ ## __name(void) { \
@@ -29,7 +32,7 @@ public:
 	Module(): Module(NULL) { }
 	Module(const char* doc): def{PyModuleDef_HEAD_INIT} {
 		this->def.m_doc = doc;
-		this->def.m_methods = Yapic_CallOptionalMethod(Impl, Methods);
+		this->def.m_methods = Yapic_CallMethod(Impl, Methods, NULL);
 		// this->def.m_size = sizeof(Impl);
 	}
 
@@ -65,7 +68,7 @@ public:
 		return 0;
 	}
 
-	inline const PyModuleDef* Definition() const { return &this->def; }
+	inline PyModuleDef* Definition() const { return &this->def; }
 	inline Impl* State() const { return &this->state; }
 
 protected:

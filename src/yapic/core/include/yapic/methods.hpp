@@ -17,11 +17,14 @@
 	template<class T> \
 	static inline auto Get ## __name (decltype(&T::__name)*) -> __type { return reinterpret_cast<__type>(&T::__name); } \
 	template<class T> \
-	static inline auto Get ## __name (...) -> __type { return NULL; } \
-	template<class T> \
+	static inline auto Get ## __name (...) -> __type { return NULL; }
+
+#if 0
+	template<class T>
 	static inline auto Call ## __name (decltype(&T::__name)*) -> auto { return T::__name(); } \
 	template<class T> \
 	static inline auto Call ## __name (...) -> auto { return NULL; }
+#endif
 
 #define Yapic_HasMethod(__cls, __method) \
 	(Yapic::_methods::Has ## __method <__cls> :: Value)
@@ -29,8 +32,13 @@
 #define Yapic_GetMethod(__cls, __method, __default) \
 	(Yapic_HasMethod(__cls, __method) ? Yapic::_methods::Get ## __method <__cls> (NULL) : __default)
 
+#if 0
 #define Yapic_CallMethod(__cls, __method, __default) \
 	(Yapic_HasMethod(__cls, __method) ? Yapic::_methods::Call ## __method <__cls> (NULL) : __default)
+#else
+	#define Yapic_CallMethod(__cls, __method, __default) \
+		__default
+#endif
 
 
 namespace Yapic { namespace _methods {

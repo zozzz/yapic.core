@@ -1,6 +1,11 @@
 #ifndef BF21EC34_7133_EC86_106C_D646EB842063
 #define BF21EC34_7133_EC86_106C_D646EB842063
 
+#ifdef __GNUG__
+#		include <cxxabi.h>
+#		include <execinfo.h>
+#endif
+
 #include "./methods.hpp"
 
 
@@ -61,11 +66,9 @@ namespace Yapic {
 	}
 #else
 #	ifdef __GNUG__
-#		include <cxxabi.h>
-#		include <execinfo.h>
 
 		template<typename T>
-		void ClassBaseName::Determine() {
+		void ClassBaseName<T>::Determine() {
 			int status;
 			const char* name = typeid(T).name();
 			size_t len = strlen(name);
