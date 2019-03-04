@@ -1,9 +1,9 @@
 #ifndef Y85B3FE5_F133_C8FE_FA27_71A7C3CADE93
 #define Y85B3FE5_F133_C8FE_FA27_71A7C3CADE93
 
+#include <Python.h>
 #include <type_traits>
 #include <typeinfo>
-#include <Python.h>
 #include <structmember.h>
 
 // XXX: decltype helyett esetleg typeof kell GCC-nél
@@ -515,9 +515,10 @@ namespace Yapic {
 	// typedef BuiltinObject<ListTrait> List;
 
 	struct ObjectTraits {
-		static constexpr const PyTypeObject* Type = &PyBaseObject_Type;
+		static const PyTypeObject* Type;
 		typedef PyObject PyType;
 	};
+	const PyTypeObject* ObjectTraits::Type = &PyBaseObject_Type;
 	typedef BuiltinObject<ObjectTraits> Object;
 
 
