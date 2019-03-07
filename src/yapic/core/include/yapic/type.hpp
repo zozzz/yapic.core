@@ -323,12 +323,27 @@ namespace Yapic {
 				return Py_TYPE(o) == Self::PyType();
 			}
 
-			static inline bool Register(PyObject* module) {
-				return Self::Register(module, Self::Name());
+			static inline bool Register(PyObject* module, const char* moduleName) {
+				return Self::Register(module, moduleName, Self::Name());
 			}
 
-			static inline bool Register(PyObject* module, const char* name) {
+			static inline bool Register(PyObject* module) {
+				return Self::Register(module, NULL, Self::Name());
+			}
+
+			static inline bool Register(PyObject* module, const char* moduleName, const char* name) {
 				PyTypeObject* type = const_cast<PyTypeObject*>(Self::PyType());
+
+				if (moduleName != NULL) {
+					std::string typeName(moduleName);
+					typeName += '.';
+					typeName += Self::Name();
+					char* newName = new char[typeName.size() + 1];
+					memcpy(newName, typeName.c_str(), sizeof(char) * typeName.size());
+					newName[typeName.size()] = '\0';
+					type->tp_name = newName;
+				}
+
 				type->tp_base = const_cast<PyTypeObject*>(Self::_BaseType());
 				if (PyType_Ready(type) < 0) {
 					return false;
