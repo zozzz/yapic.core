@@ -27,6 +27,7 @@ public:
 	}
 
 	inline operator PyObject* () { assert(ref != NULL); return ref; }
+	inline bool Eq(PyObject* other) const { return ref == other; }
 protected:
 	PyObject* ref;
 	inline void _register() {
@@ -177,6 +178,26 @@ public:
 		if (!res) {
 			throw _ModuleConst::Error;
 		}
+	}
+
+	inline bool CheckExact(const PyTypeObject* type) {
+		assert(type != NULL);
+		return type == reinterpret_cast<const PyTypeObject*>(ref);
+	}
+
+	inline bool CheckExact(const PyObject* obj) {
+		assert(obj != NULL);
+		return CheckExact(reinterpret_cast<const PyTypeObject*>(Py_TYPE(obj)));
+	}
+
+	inline bool Check(const PyObject* obj) {
+		assert(obj != NULL);
+		return PyObject_TypeCheck(const_cast<PyObject*>(obj), reinterpret_cast<PyTypeObject*>(ref));
+	}
+
+	inline bool IsSubclass(const PyTypeObject* type) {
+		assert(type != NULL);
+		return PyObject_IsSubclass(const_cast<PyObject*>(reinterpret_cast<const PyObject*>(type)), ref);
 	}
 };
 
