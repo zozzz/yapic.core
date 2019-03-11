@@ -1,5 +1,4 @@
 import typing
-import inspect
 from yapic.core.test import _typing
 from fwr import SomethingNormal, SomethingGeneric, FWR
 
