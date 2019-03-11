@@ -27,6 +27,7 @@ class PyTest(TestCommand):
         "src/yapic/core/test/_string_builder.cpp",
         "src/yapic/core/test/_types.cpp",
         "src/yapic/core/test/_thread.cpp",
+        "src/yapic/core/test/_typing.cpp",
     ]
 
     def initialize_options(self):
@@ -114,9 +115,7 @@ class PyTest(TestCommand):
                     define_macros=list(define_macros.items()),
                     extra_compile_args=ecp,
                     language="c++",
-                    depends=depends
-                )
-            )
+                    depends=depends))
 
 
 dist = setup(
@@ -126,6 +125,4 @@ dist = setup(
     package_data={"yapic.core": ["include/**/*.hpp"]},
     tests_require=["pytest", "pytest-benchmark"],
     python_requires=">=3.5",
-    cmdclass={"test": PyTest}
-
-)
+    cmdclass={"test": PyTest})
