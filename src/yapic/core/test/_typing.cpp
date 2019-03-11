@@ -55,40 +55,7 @@ public:
     }
 
     static PyObject* resolve_type_vars(PyObject* module, PyObject* o) {
-        Yapic::PyPtr<> vars(State(module)->Typing.ResolveTypeVars(o));
-        if (vars.IsValid()) {
-            Yapic::PyPtr<> result = PyDict_New();
-            if (result.IsNull()) {
-                return NULL;
-            }
-
-            PyObject* key;
-            PyObject* value;
-            Py_ssize_t i = 0;
-
-            while (PyDict_Next(vars, &i, &key, &value)) {
-                if (PyTuple_CheckExact(value)) {
-
-                    Yapic::PyPtr<> rt = PyEval_EvalCode(
-                        PyTuple_GET_ITEM(value, 0),
-                        PyTuple_GET_ITEM(value, 1),
-                        NULL);
-                    if (rt.IsNull()) {
-                        return NULL;
-                    }
-                    if (PyDict_SetItem(result, key, rt) == -1) {
-                        return NULL;
-                    }
-                } else {
-                    if (PyDict_SetItem(result, key, value) == -1) {
-                        return NULL;
-                    }
-                }
-            }
-
-            return result.Steal();
-        }
-        Py_RETURN_NONE;
+        return State(module)->Typing.ResolveTypeVars(o);
     }
 
     static PyObject* resolve_mro(PyObject* module, PyObject* o) {

@@ -1,7 +1,7 @@
 import typing
 import inspect
 from yapic.core.test import _typing
-from fwr import SomethingNormal, SomethingGeneric
+from fwr import SomethingNormal, SomethingGeneric, FWR
 
 T = typing.TypeVar("T")
 
@@ -58,25 +58,32 @@ def test_resolve_type_forward_ref():
     AB = A["FwTest"]
 
     resolved = _typing.resolve_type_vars(AB)
-    assert resolved[T] is FwTest
+    assert resolved[T]() is FwTest
 
     ASN = A["SomethingNormal"]
     resolved = _typing.resolve_type_vars(ASN)
-    assert resolved[T] is SomethingNormal
+    assert resolved[T]() is SomethingNormal
 
     ASG = A["SomethingGeneric[T]"]
     resolved = _typing.resolve_type_vars(ASG)
-    assert _typing.is_generic_type(resolved[T])
+    assert _typing.is_generic_type(resolved[T]())
 
     GFW = GenericForward["FwTest"]
     resolved = _typing.resolve_type_vars(GFW)
-    # assert _typing.is_generic_type(resolved[T])
+    rt = resolved[T]()
+    assert rt is FwTest
+
+    (attrs, init) = _typing.class_hints(GenericForward["FwTest"])
+    resolved = attrs["fwd"]()
+    assert resolved == A[FwTest]
+
+    resolved = _typing.resolve_type_vars(A["SomethingGeneric[FwTest]"])
+    rt = resolved[T]()
+    assert rt == SomethingGeneric[FwTest]
 
     # TODO: ...
-    # X = typing.TypeVar("X")
-
-    # class D(typing.Generic[X]):
-    #     d: A["SomethingGeneric[X]"]
+    # (attrs, init) = _typing.class_hints(SomethingGeneric["FwTest"])
+    # print(attrs["sga"]())
 
 
 def test_resolve_mro_1():
@@ -135,18 +142,31 @@ def test_class_hints():
         b: B
         c: A[T]
 
+    class D(typing.Generic[T]):
+        d: SomethingGeneric[T]
+        d2: "SomethingGeneric[T]"
+
     (attrs, init) = _typing.class_hints(A[FwTest])
     assert attrs["a"] is FwTest
-    assert isinstance(attrs["a_forward"], tuple)
-    # assert isinstance(attrs["a_forward"], tuple)
+    fwd_resolved = attrs["a_forward"]()
+    assert fwd_resolved.__args__[0] is FwTest
 
     (attrs, init) = _typing.class_hints(A["FwTest"])
-    from pprint import pprint
-    pprint(attrs)
+    fwd_resolved = attrs["a"]()
+    assert fwd_resolved is FwTest
+    fwd_resolved = attrs["a_forward"]()
+    assert fwd_resolved.__args__[0] is FwTest
 
     (attrs, init) = _typing.class_hints(C[B])
     assert attrs["b"] is B
     assert attrs["c"] == A[B]
 
-    # from pprint import pprint
-    # pprint(attrs)
+    (attrs, init) = _typing.class_hints(D["FwTest"])
+    assert attrs["d"]() == SomethingGeneric[FwTest]
+    assert attrs["d2"]() == SomethingGeneric[FwTest]
+
+    (attrs, init) = _typing.class_hints(attrs["d2"]())
+    assert attrs["sga"] is FwTest
+    assert attrs["forward"]() is SomethingNormal
+    assert attrs["forward_generic"]() == FWR[SomethingNormal]
+    assert attrs["forward_generic2"]() == FWR[FwTest]
