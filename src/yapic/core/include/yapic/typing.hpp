@@ -31,7 +31,7 @@ namespace Yapic {
             inline static bool IsForwardTuple(PyObject* o) {
                 assert(o != NULL);
                 return PyTuple_CheckExact(o)
-                    && PyTuple_GET_SIZE(o) == 4
+                    && PyTuple_GET_SIZE(o) == 3
                     && PyCode_Check(PyTuple_GET_ITEM(o, 0));
             }
 
@@ -271,7 +271,7 @@ namespace Yapic {
 
                                     if (IsForwardRef(argItem)) {
                                         // TODO: locals...
-                                        argResult = NewForwardRef(argItem, type, Py_None, vars);
+                                        argResult = NewForwardRef(argItem, type, Py_None);
                                         if (argResult == NULL) {
                                             goto error;
                                         }
@@ -397,24 +397,22 @@ namespace Yapic {
             }
 
         private:
-            PyObject* NewForwardRef(PyCodeObject* code, PyObject* type, PyObject* locals, PyObject* vars) {
+            PyObject* NewForwardRef(PyCodeObject* code, PyObject* type, PyObject* locals) {
                 PyPtr<> moduleName = PyObject_GetAttr(type, __module__);
                 if (moduleName.IsValid()) {
                     PyPtr<> module = PyImport_Import(moduleName);
                     if (module.IsValid()) {
-                        PyPtr<> result = PyTuple_New(4);
+                        PyPtr<> result = PyTuple_New(3);
                         if (result.IsValid()) {
                             PyObject* moduleDict = PyModule_GetDict(module); // borrowed
 
                             PyTuple_SET_ITEM(result, 0, (PyObject*)code);
                             PyTuple_SET_ITEM(result, 1, moduleDict);
                             PyTuple_SET_ITEM(result, 2, locals);
-                            PyTuple_SET_ITEM(result, 3, vars);
 
                             Py_INCREF(code);
                             Py_INCREF(moduleDict);
                             Py_INCREF(locals);
-                            Py_INCREF(vars);
 
                             return ForwardDecl::New(result, __args__, copy_with);
                         }
@@ -427,28 +425,28 @@ namespace Yapic {
                 return NULL;
             }
 
-            PyObject* NewForwardRef(PyObject* ref, PyObject* type, PyObject* locals, PyObject* vars) {
+            PyObject* NewForwardRef(PyObject* ref, PyObject* type, PyObject* locals) {
                 PyPtr<PyCodeObject> code = (PyCodeObject*)PyObject_GetAttr(ref, __forward_code__);
                 if (code.IsValid()) {
-                    return NewForwardRef((PyCodeObject*)code, type, locals, vars);
+                    return NewForwardRef((PyCodeObject*)code, type, locals);
                 } else {
                     return NULL;
                 }
             }
 
-            PyObject* NewForwardRef(const char* ref, PyObject* type, PyObject* locals, PyObject* vars) {
+            PyObject* NewForwardRef(const char* ref, PyObject* type, PyObject* locals) {
                 PyPtr<PyCodeObject> code = (PyCodeObject*)Py_CompileString(ref, "<string>", Py_eval_input);
                 if (code.IsValid()) {
-                    return NewForwardRef((PyCodeObject*)code, type, locals, vars);
+                    return NewForwardRef((PyCodeObject*)code, type, locals);
                 } else {
                     return NULL;
                 }
             }
 
-            PyObject* NewForwardRef(PyUnicodeObject* str, PyObject* type, PyObject* locals, PyObject* vars) {
+            PyObject* NewForwardRef(PyUnicodeObject* str, PyObject* type, PyObject* locals) {
                 PyPtr<> ascii = PyUnicode_AsASCIIString((PyObject*)str);
                 if (ascii.IsValid()) {
-                    return NewForwardRef(PyBytes_AS_STRING(ascii), type, locals, vars);
+                    return NewForwardRef(PyBytes_AS_STRING(ascii), type, locals);
                 } else {
                     return NULL;
                 }
@@ -570,7 +568,7 @@ namespace Yapic {
                     switch (PyDict_Contains(attrs, key)) {
                         case 0:
                             if (PyUnicode_Check(value)) {
-                                PyPtr<> forward = NewForwardRef((PyUnicodeObject*)value, type, locals, vars);
+                                PyPtr<> forward = NewForwardRef((PyUnicodeObject*)value, type, locals);
                                 if (forward.IsValid()) {
                                     if (PyDict_SetItem(attrs, key, forward) == -1) {
                                         return false;
@@ -617,7 +615,7 @@ namespace Yapic {
                     PyObject* exists = PyDict_GetItem(vars, value);
                     if (exists == NULL) {
                         *hasFwd = true;
-                        return NewForwardRef(value, type, locals, vars);
+                        return NewForwardRef(value, type, locals);
                     }
                 } else if (IsGenericType(value)) {
                     PyPtr<> args = PyObject_GetAttr(value, __args__);
