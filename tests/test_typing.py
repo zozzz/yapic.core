@@ -36,13 +36,13 @@ def test_is_forward_ref():
     assert _typing.is_forward_ref(AX.__args__[0]) is True
 
 
-def test_resolve_type():
+def test_resolve_type_vars():
     class B:
         pass
 
     AB = A[B]
 
-    resolved = _typing.resolve_type(AB)
+    resolved = _typing.resolve_type_vars(AB)
     assert resolved[T] is B
 
 
@@ -50,22 +50,103 @@ class FwTest:
     pass
 
 
+class GenericForward(typing.Generic[T]):
+    fwd: "A[T]"
+
+
 def test_resolve_type_forward_ref():
     AB = A["FwTest"]
 
-    resolved = _typing.resolve_type(AB)
+    resolved = _typing.resolve_type_vars(AB)
     assert resolved[T] is FwTest
 
     ASN = A["SomethingNormal"]
-    resolved = _typing.resolve_type(ASN)
+    resolved = _typing.resolve_type_vars(ASN)
     assert resolved[T] is SomethingNormal
 
     ASG = A["SomethingGeneric[T]"]
-    resolved = _typing.resolve_type(ASG)
+    resolved = _typing.resolve_type_vars(ASG)
     assert _typing.is_generic_type(resolved[T])
+
+    GFW = GenericForward["FwTest"]
+    resolved = _typing.resolve_type_vars(GFW)
+    # assert _typing.is_generic_type(resolved[T])
 
     # TODO: ...
     # X = typing.TypeVar("X")
 
     # class D(typing.Generic[X]):
     #     d: A["SomethingGeneric[X]"]
+
+
+def test_resolve_mro_1():
+    TA = typing.TypeVar("TA")
+    TB = typing.TypeVar("TB")
+
+    class A(typing.Generic[T]):
+        a: T
+
+    class B(A[TA], typing.Generic[T, TA]):
+        b: T
+
+    class C(typing.Generic[T, TA, TB], B[TB, TA]):
+        c: T
+
+    class IA:
+        pass
+
+    class IB:
+        pass
+
+    class IC:
+        pass
+
+    resolved = _typing.resolve_mro(C[IC, IA, IB])
+
+    # for c, g, v in resolved:
+    #     print(c, g)
+    #     print("    \t%r" % v)
+
+    assert resolved[0][0] is C
+    assert resolved[0][2][T] is IC
+    assert resolved[0][2][TA] is IA
+    assert resolved[0][2][TB] is IB
+
+    assert resolved[1][0] is B
+    assert resolved[1][2][T] is IB
+    assert resolved[1][2][TA] is IA
+
+    assert resolved[2][0] is A
+    assert resolved[2][2][T] is IA
+
+
+def test_class_hints():
+    class X(typing.Generic[T]):
+        x: T
+
+    class A(typing.Generic[T]):
+        a: T
+        a_forward: X["T"]
+
+    class B:
+        pass
+
+    class C(typing.Generic[T]):
+        b: B
+        c: A[T]
+
+    (attrs, init) = _typing.class_hints(A[FwTest])
+    assert attrs["a"] is FwTest
+    assert isinstance(attrs["a_forward"], tuple)
+    # assert isinstance(attrs["a_forward"], tuple)
+
+    (attrs, init) = _typing.class_hints(A["FwTest"])
+    from pprint import pprint
+    pprint(attrs)
+
+    (attrs, init) = _typing.class_hints(C[B])
+    assert attrs["b"] is B
+    assert attrs["c"] == A[B]
+
+    # from pprint import pprint
+    # pprint(attrs)

@@ -54,39 +54,49 @@ public:
         }
     }
 
-    static PyObject* resolve_type(PyObject* module, PyObject* o) {
-        std::unique_ptr<Yapic::Typing::TypeVars> vars(State(module)->Typing.ResolveType(o));
-        if (vars) {
+    static PyObject* resolve_type_vars(PyObject* module, PyObject* o) {
+        Yapic::PyPtr<> vars(State(module)->Typing.ResolveTypeVars(o));
+        if (vars.IsValid()) {
             Yapic::PyPtr<> result = PyDict_New();
-            if (result.IsValid()) {
-                PyObject* vars_dict = vars->Vars();
-
-                PyObject* key;
-                PyObject* value;
-                Py_ssize_t i = 0;
-
-                while (PyDict_Next(vars_dict, &i, &key, &value)) {
-                    if (vars->IsForwardRef(value)) {
-                        Yapic::PyPtr<> rt = vars->ResolveForwardRef(value);
-                        if (rt.IsNull()) {
-                            return NULL;
-                        }
-                        if (PyDict_SetItem(result, key, rt) == -1) {
-                            return NULL;
-                        }
-                    } else {
-                        if (PyDict_SetItem(result, key, value) == -1) {
-                            return NULL;
-                        }
-                    }
-                }
-
-                return result.Steal();
-            } else {
+            if (result.IsNull()) {
                 return NULL;
             }
+
+            PyObject* key;
+            PyObject* value;
+            Py_ssize_t i = 0;
+
+            while (PyDict_Next(vars, &i, &key, &value)) {
+                if (PyTuple_CheckExact(value)) {
+
+                    Yapic::PyPtr<> rt = PyEval_EvalCode(
+                        PyTuple_GET_ITEM(value, 0),
+                        PyTuple_GET_ITEM(value, 1),
+                        NULL);
+                    if (rt.IsNull()) {
+                        return NULL;
+                    }
+                    if (PyDict_SetItem(result, key, rt) == -1) {
+                        return NULL;
+                    }
+                } else {
+                    if (PyDict_SetItem(result, key, value) == -1) {
+                        return NULL;
+                    }
+                }
+            }
+
+            return result.Steal();
         }
         Py_RETURN_NONE;
+    }
+
+    static PyObject* resolve_mro(PyObject* module, PyObject* o) {
+        return State(module)->Typing.ResolveMro(o);
+    }
+
+    static PyObject* class_hints(PyObject* module, PyObject* o) {
+        return State(module)->Typing.ClassHints(o);
     }
 
 	Yapic_METHODS_BEGIN
@@ -94,7 +104,9 @@ public:
 		Yapic_Method(is_generic, METH_O, NULL)
 		Yapic_Method(is_generic_type, METH_O, NULL)
 		Yapic_Method(is_forward_ref, METH_O, NULL)
-		Yapic_Method(resolve_type, METH_O, NULL)
+		Yapic_Method(resolve_type_vars, METH_O, NULL)
+		Yapic_Method(resolve_mro, METH_O, NULL)
+		Yapic_Method(class_hints, METH_O, NULL)
 	Yapic_METHODS_END
 };
 
