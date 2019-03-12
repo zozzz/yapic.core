@@ -1,4 +1,4 @@
-import typing
+import typing, pytest
 from yapic.core.test import _typing
 from fwr import SomethingNormal, SomethingGeneric, FWR
 
@@ -126,6 +126,49 @@ def test_resolve_mro_1():
     assert resolved[2][2][T] is IA
 
 
+callable_cases = [
+    ("a: A", ((("a", A), ), None)),
+    ("a: A, b: FwTest", ((("a", A), ("b", FwTest)), None)),
+    ("a: A = 'AD'", ((("a", A, "AD"), ), None)),
+    ("a: A = 'AD', b: FwTest = 'BD'", ((("a", A, "AD"), ("b", FwTest, "BD")), None)),
+    ("a: A, b: FwTest = 'BD'", ((("a", A), ("b", FwTest, "BD")), None)),
+    ("*, kw1: A", (None, (("kw1", A), ))),
+    ("*, kw1: A, kw2: FwTest", (None, (("kw1", A), ("kw2", FwTest)))),
+    ("*, kw1: A = 'KW1D'", (None, (("kw1", A, "KW1D"), ))),
+    ("*, kw1: A = 'KW1D', kw2: FwTest = 'KW2D'", (None, (("kw1", A, "KW1D"), ("kw2", FwTest, "KW2D")))),
+    ("*, kw1: A, kw2: FwTest = 'KW2D'", (None, (("kw1", A), ("kw2", FwTest, "KW2D")))),
+    ("a: A, *, kw1: A", ((("a", A), ), (("kw1", A), ))),
+    ("a: A, b: FwTest, *, kw1: A, kw2: FwTest", ((("a", A), ("b", FwTest)), (("kw1", A), ("kw2", FwTest)))),
+]
+
+
+@pytest.mark.parametrize("fnHead,expected", callable_cases, ids=[x[0] for x in callable_cases])
+def test_callable_hints_basic(fnHead, expected):
+    code = compile(f"""def fn({fnHead}): pass""", "<string>", "exec")
+    locals_ = dict(locals())
+    exec(code, globals(), locals_)
+
+    hint = _typing.callable_hints(locals_["fn"])
+    assert hint == expected
+
+
+@pytest.mark.parametrize("fnHead,expected", callable_cases, ids=[x[0] for x in callable_cases])
+def test_callable_hints_class_init(fnHead, expected):
+    if fnHead:
+        fnHead = f", {fnHead}"
+    code = compile(f"""
+class CLASS:
+    def __init__(self{fnHead}):
+        pass
+""", "<string>", "exec")
+    locals_ = dict(locals())
+    exec(code, globals(), locals_)
+
+    cls = locals_["CLASS"]
+    hint = _typing.callable_hints_with_type(cls.__init__, cls)
+    assert hint == expected
+
+
 def test_class_hints():
     class X(typing.Generic[T]):
         x: T
@@ -133,6 +176,9 @@ def test_class_hints():
     class A(typing.Generic[T]):
         a: T
         a_forward: X["T"]
+
+        def __init__(self, a_init: T, a_init_fw: X["T"], *, kw: "FwTest"):
+            pass
 
     class B:
         pass
@@ -149,6 +195,14 @@ def test_class_hints():
     assert attrs["a"] is FwTest
     fwd_resolved = attrs["a_forward"]()
     assert fwd_resolved.__args__[0] is FwTest
+    (init_pos, init_kw) = init
+    assert len(init_pos) == 2
+    assert init_pos[0][0] == "a_init"
+    assert init_pos[0][1] is FwTest
+    assert init_pos[1][0] == "a_init_fw"
+    assert init_pos[1][1]() == X[FwTest]
+    assert init_kw[0][0] == "kw"
+    assert init_kw[0][1]() is FwTest
 
     (attrs, init) = _typing.class_hints(A["FwTest"])
     fwd_resolved = attrs["a"]()

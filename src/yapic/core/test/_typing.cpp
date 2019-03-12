@@ -66,6 +66,19 @@ public:
         return State(module)->Typing.ClassHints(o);
     }
 
+    static PyObject* callable_hints(PyObject* module, PyObject* o) {
+        return State(module)->Typing.CallableHints(o);
+    }
+
+    static PyObject* callable_hints_with_type(PyObject* module, PyObject* args) {
+        PyObject* callable;
+        PyObject* type;
+        if (PyArg_UnpackTuple(args, "OO", 2, 2, &callable, &type)) {
+            return State(module)->Typing.CallableHints(callable, type);
+        }
+        return NULL;
+    }
+
 	Yapic_METHODS_BEGIN
 		Yapic_Method(get_typing, METH_NOARGS, NULL)
 		Yapic_Method(is_generic, METH_O, NULL)
@@ -74,6 +87,8 @@ public:
 		Yapic_Method(resolve_type_vars, METH_O, NULL)
 		Yapic_Method(resolve_mro, METH_O, NULL)
 		Yapic_Method(class_hints, METH_O, NULL)
+		Yapic_Method(callable_hints, METH_O, NULL)
+		Yapic_Method(callable_hints_with_type, METH_VARARGS, NULL)
 	Yapic_METHODS_END
 };
 

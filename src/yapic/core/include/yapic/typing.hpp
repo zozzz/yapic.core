@@ -153,6 +153,8 @@ namespace Yapic {
                 Py_CLEAR(__orig_bases__);
                 Py_CLEAR(__name__);
                 Py_CLEAR(__annotations__);
+                Py_CLEAR(__dict__);
+                Py_CLEAR(__init__);
                 Py_CLEAR(copy_with);
                 Py_DECREF(const_cast<PyTypeObject*>(&ForwardDecl::Type));
             }
@@ -174,6 +176,8 @@ namespace Yapic {
                 Yapic_Typing_StrCache(__orig_bases__, "__orig_bases__");
                 Yapic_Typing_StrCache(__name__, "__name__");
                 Yapic_Typing_StrCache(__annotations__, "__annotations__");
+                Yapic_Typing_StrCache(__dict__, "__dict__");
+                Yapic_Typing_StrCache(__init__, "__init__");
                 Yapic_Typing_StrCache(copy_with, "copy_with");
 
                 if ((ForwardDecl::Type.tp_flags & Py_TPFLAGS_READY) != Py_TPFLAGS_READY) {
@@ -290,17 +294,17 @@ namespace Yapic {
                                         Py_DECREF(argResult);
                                     }
                                 }
-
-                                return resolved.Steal();
                             }
                         }
                     }
-                }
 
-                error:
                     if (PyErr_Occurred()) {
                         PyErr_Clear();
                     }
+                    return resolved.Steal();
+                }
+
+                error:
                     return NULL;
             }
 
@@ -364,92 +368,176 @@ namespace Yapic {
 
                 if (mro.IsValid()) {
                     PyPtr<> attrs = PyDict_New();
-                    if (attrs.IsValid()) {
-                        PyObject* mroEntry;
-                        PyPtr<> annots(NULL);
-                        Py_ssize_t l = PyTuple_GET_SIZE(mro);
-                        for (Py_ssize_t i = 0; i < l; ++i) {
-                            mroEntry = PyTuple_GET_ITEM(mro, i);
-                            assert(mroEntry != NULL);
+                    if (attrs.IsNull()) {
+                        return NULL;
+                    }
 
-                            PyObject* currentType = PyTuple_GET_ITEM(mroEntry, 0);
-                            PyObject* currentVars = PyTuple_GET_ITEM(mroEntry, 2);
-                            annots = PyObject_GetAttr(currentType, __annotations__);
-                            if (annots.IsValid()) {
-                                if (!ResolveAnnots(currentType, annots, currentVars, attrs)) {
-                                    return NULL;
+                    PyPtr<> init;
+
+                    PyObject* mroEntry;
+                    PyPtr<> annots(NULL);
+                    Py_ssize_t l = PyTuple_GET_SIZE(mro) - 1;
+                    for (Py_ssize_t i = 0; i < l; ++i) {
+                        mroEntry = PyTuple_GET_ITEM(mro, i);
+                        assert(mroEntry != NULL);
+
+                        PyObject* currentType = PyTuple_GET_ITEM(mroEntry, 0);
+                        PyObject* currentVars = PyTuple_GET_ITEM(mroEntry, 2);
+                        annots = PyObject_GetAttr(currentType, __annotations__);
+                        if (annots.IsValid()) {
+                            if (!ResolveAnnots(currentType, annots, currentVars, attrs)) {
+                                return NULL;
+                            }
+                        } else {
+                            PyErr_Clear();
+                        }
+
+                        if (init.IsNone()) {
+                            PyObject* clsDict = PyObject_GetAttr(currentType, __dict__);
+                            if (clsDict != NULL) {
+                                PyPtr<> initFn = PyObject_GetItem(clsDict, __init__);
+                                Py_DECREF(clsDict);
+
+                                if (initFn.IsValid()) {
+                                    init = CallableHints(initFn, currentType, currentVars);
+                                    if (init.IsNull()) {
+                                        return NULL;
+                                    }
+                                } else {
+                                    PyErr_Clear();
                                 }
                             } else {
                                 PyErr_Clear();
                             }
                         }
+                    }
 
-                        PyObject* res = PyTuple_New(2);
-                        if (res != NULL) {
-                            PyTuple_SET_ITEM(res, 0, attrs.Steal());
-                            PyTuple_SET_ITEM(res, 1, Py_None);
-                            Py_INCREF(Py_None);
-                            return res;
-                        }
+                    PyObject* res = PyTuple_New(2);
+                    if (res != NULL) {
+                        PyTuple_SET_ITEM(res, 0, attrs.Steal());
+                        PyTuple_SET_ITEM(res, 1, init.Steal());
+                        return res;
                     }
                 }
                 return NULL;
             }
 
-        private:
-            PyObject* NewForwardRef(PyCodeObject* code, PyObject* type, PyObject* locals) {
-                PyPtr<> moduleName = PyObject_GetAttr(type, __module__);
-                if (moduleName.IsValid()) {
-                    PyPtr<> module = PyImport_Import(moduleName);
-                    if (module.IsValid()) {
-                        PyPtr<> result = PyTuple_New(3);
-                        if (result.IsValid()) {
-                            PyObject* moduleDict = PyModule_GetDict(module); // borrowed
-
-                            PyTuple_SET_ITEM(result, 0, (PyObject*)code);
-                            PyTuple_SET_ITEM(result, 1, moduleDict);
-                            PyTuple_SET_ITEM(result, 2, locals);
-
-                            Py_INCREF(code);
-                            Py_INCREF(moduleDict);
-                            Py_INCREF(locals);
-
-                            return ForwardDecl::New(result, __args__, copy_with);
-                        }
-                    }
-                }
-
-                if (PyErr_Occurred()) {
-                    PyErr_Clear();
-                }
-                return NULL;
-            }
-
-            PyObject* NewForwardRef(PyObject* ref, PyObject* type, PyObject* locals) {
-                PyPtr<PyCodeObject> code = (PyCodeObject*)PyObject_GetAttr(ref, __forward_code__);
-                if (code.IsValid()) {
-                    return NewForwardRef((PyCodeObject*)code, type, locals);
+            inline PyObject* CallableHints(PyObject* callable) {
+                PyPtr<> vars = PyDict_New();
+                if (vars.IsValid()) {
+                    return CallableHints(callable, NULL, vars);
                 } else {
                     return NULL;
                 }
             }
 
-            PyObject* NewForwardRef(const char* ref, PyObject* type, PyObject* locals) {
+            inline PyObject* CallableHints(PyObject* callable, PyObject* type) {
+                PyPtr<> vars = ResolveTypeVars(type);
+                if (vars.IsValid()) {
+                    return CallableHints(callable, type, vars);
+                } else {
+                    return NULL;
+                }
+            }
+
+            /**
+             * result = (
+             *      positional arguments = (
+             *          arg1 = (name, type[, defaultValue]),
+             *          argN = (name, type[, defaultValue])
+             *      ),
+             *      keyword only arguments = (
+             *          arg1 = (name, type[, defaultValue]),
+             *          argN = (name, type[, defaultValue])
+             *      )
+             * )
+            */
+            inline PyObject* CallableHints(PyObject* callable, PyObject* type, PyObject* vars) {
+                PyFunctionObject* func;
+                PyObject* bound = type;
+
+                if (CallableInfo(callable, func, bound)) {
+                    return ResolveArguments(func, bound == NULL ? 0 : 1, type, vars);
+                } else {
+                    return NULL;
+                }
+            }
+
+        private:
+            PyObject* NewForwardRef(PyCodeObject* code, PyDictObject* globals, PyDictObject* locals) {
+                PyPtr<> result = PyTuple_New(3);
+                if (result.IsValid()) {
+                    Py_INCREF(code);
+                    Py_INCREF(globals);
+                    Py_INCREF(locals);
+
+                    PyTuple_SET_ITEM(result, 0, (PyObject*)code);
+                    PyTuple_SET_ITEM(result, 1, (PyObject*)globals);
+                    PyTuple_SET_ITEM(result, 2, (PyObject*)locals);
+
+                    return ForwardDecl::New(result, __args__, copy_with);
+                } else {
+                    return NULL;
+                }
+            }
+
+            PyObject* NewForwardRef(PyObject* ref, PyObject* type, PyObject* locals) {
+                assert(IsForwardRef(ref));
+
+                PyPtr<PyCodeObject> code = (PyCodeObject*)PyObject_GetAttr(ref, __forward_code__);
+                if (code.IsValid()) {
+                    PyPtr<> moduleName = PyObject_GetAttr(type, __module__);
+                    if (moduleName.IsValid()) {
+                        PyPtr<> module = PyImport_Import(moduleName);
+                        if (module.IsValid()) {
+                            PyObject* moduleDict = PyModule_GetDict(module); // borrowed
+                            if (moduleDict != NULL) {
+                                return NewForwardRef((PyCodeObject*)code, (PyDictObject*)moduleDict, (PyDictObject*)locals);
+                            }
+                        }
+                    }
+                }
+                return NULL;
+            }
+
+            PyObject* NewForwardRef(const char* ref, PyDictObject* globals, PyDictObject* locals) {
                 PyPtr<PyCodeObject> code = (PyCodeObject*)Py_CompileString(ref, "<string>", Py_eval_input);
                 if (code.IsValid()) {
-                    return NewForwardRef((PyCodeObject*)code, type, locals);
+                    return NewForwardRef((PyCodeObject*)code, globals, locals);
                 } else {
                     return NULL;
                 }
             }
 
             PyObject* NewForwardRef(PyUnicodeObject* str, PyObject* type, PyObject* locals) {
-                PyPtr<> ascii = PyUnicode_AsASCIIString((PyObject*)str);
-                if (ascii.IsValid()) {
-                    return NewForwardRef(PyBytes_AS_STRING(ascii), type, locals);
+                PyPtr<> moduleName = PyObject_GetAttr(type, __module__);
+                if (moduleName.IsValid()) {
+                    return NewForwardRef(str, (PyUnicodeObject*)moduleName, locals);
                 } else {
                     return NULL;
                 }
+            }
+
+            PyObject* NewForwardRef(PyUnicodeObject* str, PyUnicodeObject* moduleName, PyObject* locals) {
+                PyPtr<> module = PyImport_Import((PyObject*)moduleName);
+                if (module.IsValid()) {
+                    PyDictObject* moduleDict = (PyDictObject*)PyModule_GetDict(module);
+                    if (moduleDict != NULL) {
+                        return NewForwardRef(str, (PyDictObject*)moduleDict, (PyDictObject*)locals);
+                    } else {
+                        return NULL;
+                    }
+                } else {
+                    return NULL;
+                }
+            }
+
+            PyObject* NewForwardRef(PyUnicodeObject* str, PyDictObject* globals, PyDictObject* locals) {
+                PyPtr<> ascii = PyUnicode_AsASCIIString((PyObject*)str);
+                if (ascii.IsValid()) {
+                    return NewForwardRef(PyBytes_AS_STRING(ascii), globals, locals);
+                }
+                return NULL;
             }
 
             /**
@@ -535,23 +623,26 @@ namespace Yapic {
 
             PyObject* VarsToLocals(PyObject* vars) {
                 PyPtr<> locals = PyDict_New();
+                if (locals.IsValid()) {
+                    if (PyDict_Size(vars) > 0) {
+                        Py_ssize_t pos = 0;
+                        PyObject* key;
+                        PyObject* value;
 
-                if (PyDict_Size(vars) > 0) {
-                    Py_ssize_t pos = 0;
-                    PyObject* key;
-                    PyObject* value;
-
-                    while (PyDict_Next(vars, &pos, &key, &value)) {
-                        if (IsTypeVar(key)) {
-                            PyPtr<> ln = PyObject_GetAttr(key, __name__);
-                            if (ln.IsNull() || PyDict_SetItem(locals, ln, value) == -1) {
-                                return NULL;
+                        while (PyDict_Next(vars, &pos, &key, &value)) {
+                            if (IsTypeVar(key)) {
+                                PyPtr<> ln = PyObject_GetAttr(key, __name__);
+                                if (ln.IsNull() || PyDict_SetItem(locals, ln, value) == -1) {
+                                    return NULL;
+                                }
                             }
                         }
                     }
-                }
 
-                return locals.Steal();
+                    return locals.Steal();
+                } else {
+                    return NULL;
+                }
             }
 
             bool ResolveAnnots(PyObject* type, PyObject* annots, PyObject* vars, PyObject* attrs) {
@@ -631,7 +722,7 @@ namespace Yapic {
                                         newA = oldA;
                                     }
 
-                                    newA = _SubstType(newA, type, vars, locals, hasFwd);
+                                    newA = _SubstType(newA, value, vars, locals, hasFwd);
                                     if (newA == NULL) {
                                         return NULL;
                                     }
@@ -669,6 +760,176 @@ namespace Yapic {
                 return value;
             }
 
+            bool CallableInfo(PyObject* callable, PyFunctionObject*& func, PyObject*& bound) {
+                if (PyFunction_Check(callable)) {
+					func = (PyFunctionObject*) callable;
+					return true;
+                } else if (PyMethod_Check(callable)) {
+                    func = (PyFunctionObject*) PyMethod_GET_FUNCTION(callable);
+					assert(PyFunction_Check(func));
+					bound = PyMethod_GET_SELF(callable);
+                    return true;
+                } else {
+                    PyErr_Format(PyExc_TypeError, "Got unsupported callable: %R", callable);
+                    return false;
+                }
+            }
+
+            PyObject* ResolveArguments(PyFunctionObject* func, int offset, PyObject* type, PyObject* vars) {
+                PyCodeObject* code = (PyCodeObject*) PyFunction_GET_CODE(func);
+                assert(code != NULL && PyCode_Check(code));
+
+                PyObject* globals = PyFunction_GET_GLOBALS(func);
+                assert(globals != NULL && PyDict_CheckExact(globals));
+
+                PyPtr<> locals(VarsToLocals(vars));
+                if (locals.IsNull()) {
+                    return NULL;
+                }
+
+                PyPtr<> result(PyTuple_New(2));
+                if (result.IsNull()) {
+                    return NULL;
+                }
+
+                PyObject* annots = PyFunction_GET_ANNOTATIONS(func);
+                if (annots != NULL) {
+                    assert(PyDict_CheckExact(annots));
+                }
+
+                PyPtr<> args;
+                PyPtr<> keywords;
+                PyObject* defaults;
+                PyObject* argName;
+                PyObject* argType;
+                PyObject* argDef;
+                int argcount = code->co_argcount - offset;
+                if (argcount > 0) {
+                    assert(PyTuple_CheckExact(code->co_varnames));
+                    assert(PyTuple_GET_SIZE(code->co_varnames) >= argcount);
+
+                    args = PyTuple_New(argcount);
+                    if (args.IsNull()) {
+                        return NULL;
+                    }
+
+                    defaults = PyFunction_GET_DEFAULTS(func);
+                    if (defaults == NULL) {
+                        for (int i=offset ; i<code->co_argcount ; ++i) {
+                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argType = ResolveArgumentType(annots, argName, type, vars, globals, locals);
+                            if (argType == NULL) {
+                                return NULL;
+                            }
+
+                            PyObject* entry = PyTuple_Pack(2, argName, argType);
+                            Py_DECREF(argType);
+
+                            if (entry == NULL) {
+                                return NULL;
+                            }
+                            PyTuple_SET_ITEM(args, i - offset, entry);
+                        }
+                    } else {
+                        assert(PyTuple_CheckExact(defaults));
+
+                        Py_ssize_t defcount = PyTuple_GET_SIZE(defaults);
+                        Py_ssize_t defcounter = 0;
+                        for (int i=offset ; i<code->co_argcount ; ++i) {
+                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argDef = (code->co_argcount - defcount <= i
+                                ? PyTuple_GET_ITEM(defaults, defcounter++)
+                                : NULL);
+                            argType = ResolveArgumentType(annots, argName, type, vars, globals, locals);
+
+                            if (argType == NULL) {
+                                return NULL;
+                            }
+
+                            PyObject* entry = argDef == NULL
+                                ? PyTuple_Pack(2, argName, argType)
+                                : PyTuple_Pack(3, argName, argType, argDef);
+                            Py_DECREF(argType);
+
+                            if (entry == NULL) {
+                                return NULL;
+                            }
+                            PyTuple_SET_ITEM(args, i - offset, entry);
+                        }
+                    }
+                }
+
+                if (code->co_kwonlyargcount) {
+                    assert(PyTuple_GET_SIZE(code->co_varnames) >= code->co_kwonlyargcount + code->co_argcount);
+
+                    keywords = PyTuple_New(code->co_kwonlyargcount);
+                    if (keywords.IsNull()) {
+                        return NULL;
+                    }
+
+                    defaults = PyFunction_GET_KW_DEFAULTS(func);
+                    if (defaults == NULL) {
+                        for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
+                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argType = ResolveArgumentType(annots, argName, type, vars, globals, locals);
+                            if (argType == NULL) {
+                                return NULL;
+                            }
+
+                            PyObject* entry = PyTuple_Pack(2, argName, argType);
+                            Py_DECREF(argType);
+
+                            if (entry == NULL) {
+                                return NULL;
+                            }
+                            PyTuple_SET_ITEM(keywords, i - code->co_argcount, entry);
+                        }
+                    } else {
+                        assert(PyDict_CheckExact(defaults));
+
+                        for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
+                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argDef = PyDict_GetItem(defaults, argName);
+                            argType = ResolveArgumentType(annots, argName, type, vars, globals, locals);
+                            if (argType == NULL) {
+                                return NULL;
+                            }
+
+                            PyObject* entry = argDef == NULL
+                                ? PyTuple_Pack(2, argName, argType)
+                                : PyTuple_Pack(3, argName, argType, argDef);
+                            Py_DECREF(argType);
+
+                            if (entry == NULL) {
+                                return NULL;
+                            }
+                            PyTuple_SET_ITEM(keywords, i - code->co_argcount, entry);
+                        }
+                    }
+                }
+
+                PyTuple_SET_ITEM(result, 0, args.Steal());
+                PyTuple_SET_ITEM(result, 1, keywords.Steal());
+                return result.Steal();
+            }
+
+            inline PyObject* ResolveArgumentType(PyObject* annots, PyObject* name, PyObject* type, PyObject* vars, PyObject* globals, PyObject* locals) {
+                if (annots != NULL) {
+                    PyObject* value = PyDict_GetItem(annots, name);
+                    if (value != NULL) {
+                        if (PyUnicode_Check(value)) {
+                            return NewForwardRef((PyUnicodeObject*)value, (PyDictObject*)globals, (PyDictObject*)locals);
+                        } else {
+                            return SubstType(value, type, vars, locals);
+                        }
+                    } else {
+                        Py_RETURN_NONE;
+                    }
+                } else {
+                    Py_RETURN_NONE;
+                }
+            }
+
 
             PyObject* _typing;
             PyObject* Generic;
@@ -684,6 +945,8 @@ namespace Yapic {
             PyObject* __orig_bases__;
             PyObject* __name__;
             PyObject* __annotations__;
+            PyObject* __dict__;
+            PyObject* __init__;
             PyObject* copy_with;
     };
 

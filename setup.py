@@ -32,7 +32,7 @@ class PyTest(TestCommand):
 
     def initialize_options(self):
         super().initialize_options()
-        self.pytest_args = "-x -s"
+        self.pytest_args = "-x -s -v"
         self.file = None
 
     def finalize_options(self):
@@ -123,6 +123,6 @@ dist = setup(
     packages=["yapic.core"],
     package_dir={"yapic.core": "src/yapic/core"},
     package_data={"yapic.core": ["include/**/*.hpp"]},
-    tests_require=["pytest", "pytest-benchmark"],
+    tests_require=["pytest", "pytest-benchmark", "pytest-leaks"],
     python_requires=">=3.5",
     cmdclass={"test": PyTest})
