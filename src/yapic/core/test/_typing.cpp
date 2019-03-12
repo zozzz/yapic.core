@@ -62,8 +62,8 @@ public:
         return State(module)->Typing.ResolveMro(o);
     }
 
-    static PyObject* class_hints(PyObject* module, PyObject* o) {
-        return State(module)->Typing.ClassHints(o);
+    static PyObject* type_hints(PyObject* module, PyObject* o) {
+        return State(module)->Typing.TypeHints(o);
     }
 
     static PyObject* callable_hints(PyObject* module, PyObject* o) {
@@ -86,7 +86,7 @@ public:
 		Yapic_Method(is_forward_ref, METH_O, NULL)
 		Yapic_Method(resolve_type_vars, METH_O, NULL)
 		Yapic_Method(resolve_mro, METH_O, NULL)
-		Yapic_Method(class_hints, METH_O, NULL)
+		Yapic_Method(type_hints, METH_O, NULL)
 		Yapic_Method(callable_hints, METH_O, NULL)
 		Yapic_Method(callable_hints_with_type, METH_VARARGS, NULL)
 	Yapic_METHODS_END

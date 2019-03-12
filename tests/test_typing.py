@@ -72,7 +72,7 @@ def test_resolve_type_forward_ref():
     rt = resolved[T]()
     assert rt is FwTest
 
-    (attrs, init) = _typing.class_hints(GenericForward["FwTest"])
+    (cls, attrs, init) = _typing.type_hints(GenericForward["FwTest"])
     resolved = attrs["fwd"]()
     assert resolved == A[FwTest]
 
@@ -191,7 +191,7 @@ def test_class_hints():
         d: SomethingGeneric[T]
         d2: "SomethingGeneric[T]"
 
-    (attrs, init) = _typing.class_hints(A[FwTest])
+    (cls, attrs, init) = _typing.type_hints(A[FwTest])
     assert attrs["a"] is FwTest
     fwd_resolved = attrs["a_forward"]()
     assert fwd_resolved.__args__[0] is FwTest
@@ -204,21 +204,21 @@ def test_class_hints():
     assert init_kw[0][0] == "kw"
     assert init_kw[0][1]() is FwTest
 
-    (attrs, init) = _typing.class_hints(A["FwTest"])
+    (cls, attrs, init) = _typing.type_hints(A["FwTest"])
     fwd_resolved = attrs["a"]()
     assert fwd_resolved is FwTest
     fwd_resolved = attrs["a_forward"]()
     assert fwd_resolved.__args__[0] is FwTest
 
-    (attrs, init) = _typing.class_hints(C[B])
+    (cls, attrs, init) = _typing.type_hints(C[B])
     assert attrs["b"] is B
     assert attrs["c"] == A[B]
 
-    (attrs, init) = _typing.class_hints(D["FwTest"])
+    (cls, attrs, init) = _typing.type_hints(D["FwTest"])
     assert attrs["d"]() == SomethingGeneric[FwTest]
     assert attrs["d2"]() == SomethingGeneric[FwTest]
 
-    (attrs, init) = _typing.class_hints(attrs["d2"]())
+    (cls, attrs, init) = _typing.type_hints(attrs["d2"]())
     assert attrs["sga"] is FwTest
     assert attrs["forward"]() is SomethingNormal
     assert attrs["forward_generic"]() == FWR[SomethingNormal]

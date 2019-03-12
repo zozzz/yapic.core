@@ -354,16 +354,17 @@ namespace Yapic {
                 }
             }
 
-            inline PyObject* ClassHints(PyObject* type) {
+            inline PyObject* TypeHints(PyObject* type) {
                 PyPtr<> vars = PyDict_New();
                 if (vars.IsValid()) {
-                    return ClassHints(type, vars);
+                    return TypeHints(type, vars);
                 } else {
                     return NULL;
                 }
             }
 
-            PyObject* ClassHints(PyObject* type, PyObject* vars) {
+            // returns (original_class, attributes, init)
+            PyObject* TypeHints(PyObject* type, PyObject* vars) {
                 PyPtr<> mro = ResolveMro(type, vars);
 
                 if (mro.IsValid()) {
@@ -412,10 +413,13 @@ namespace Yapic {
                         }
                     }
 
-                    PyObject* res = PyTuple_New(2);
+                    PyObject* res = PyTuple_New(3);
                     if (res != NULL) {
-                        PyTuple_SET_ITEM(res, 0, attrs.Steal());
-                        PyTuple_SET_ITEM(res, 1, init.Steal());
+                        PyObject* oc = PyTuple_GET_ITEM(mro, 0);
+                        Py_INCREF(oc);
+                        PyTuple_SET_ITEM(res, 0, oc);
+                        PyTuple_SET_ITEM(res, 1, attrs.Steal());
+                        PyTuple_SET_ITEM(res, 2, init.Steal());
                         return res;
                     }
                 }
