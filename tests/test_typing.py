@@ -127,11 +127,13 @@ def test_resolve_mro_1():
 
 
 callable_cases = [
+    ("a", ((("a", None), ), None)),
     ("a: A", ((("a", A), ), None)),
     ("a: A, b: FwTest", ((("a", A), ("b", FwTest)), None)),
     ("a: A = 'AD'", ((("a", A, "AD"), ), None)),
     ("a: A = 'AD', b: FwTest = 'BD'", ((("a", A, "AD"), ("b", FwTest, "BD")), None)),
     ("a: A, b: FwTest = 'BD'", ((("a", A), ("b", FwTest, "BD")), None)),
+    ("*, kw1", (None, (("kw1", None), ))),
     ("*, kw1: A", (None, (("kw1", A), ))),
     ("*, kw1: A, kw2: FwTest", (None, (("kw1", A), ("kw2", FwTest)))),
     ("*, kw1: A = 'KW1D'", (None, (("kw1", A, "KW1D"), ))),
@@ -167,6 +169,50 @@ class CLASS:
     cls = locals_["CLASS"]
     hint = _typing.callable_hints_with_type(cls.__init__, cls)
     assert hint == expected
+
+
+def test_callable_hints_class():
+    class Basic:
+        @classmethod
+        def cls_method(cls, a: A):
+            pass
+
+        @staticmethod
+        def static_method(a: A):
+            pass
+
+        def method(self, a: A):
+            pass
+
+    hints = _typing.callable_hints(Basic.cls_method)
+    assert hints == ((("a", A), ), None)
+
+    hints = _typing.callable_hints(Basic.static_method)
+    assert hints == ((("a", A), ), None)
+
+    hints = _typing.callable_hints(Basic.method)
+    assert hints == ((("self", None), ("a", A)), None)
+
+    hints = _typing.callable_hints_with_type(Basic.method, Basic)
+    assert hints == ((("a", A), ), None)
+
+    class Callable:
+        def __call__(self, a: A):
+            pass
+
+    class Callable2(typing.Generic[T]):
+        def __call__(self, a: T):
+            pass
+
+    hints = _typing.callable_hints(Callable())
+    assert hints == ((("a", A), ), None)
+
+    hints = _typing.callable_hints(Callable2[FwTest]())
+    assert hints == ((("a", FwTest), ), None)
+
+    with pytest.raises(TypeError) as exc:
+        hints = _typing.callable_hints(_typing.callable_hints)
+    assert "Cannot get type hints from built / c-extension method" in str(exc.value)
 
 
 def test_class_hints():
@@ -205,21 +251,101 @@ def test_class_hints():
     assert init_kw[0][1]() is FwTest
 
     (cls, attrs, init) = _typing.type_hints(A["FwTest"])
+    assert cls is A
     fwd_resolved = attrs["a"]()
     assert fwd_resolved is FwTest
     fwd_resolved = attrs["a_forward"]()
     assert fwd_resolved.__args__[0] is FwTest
 
+    (cls, attrs, init) = _typing.type_hints(B)
+    assert cls is B
+    assert attrs is None
+    assert init is None
+
     (cls, attrs, init) = _typing.type_hints(C[B])
+    assert cls is C
     assert attrs["b"] is B
     assert attrs["c"] == A[B]
 
     (cls, attrs, init) = _typing.type_hints(D["FwTest"])
+    assert cls is D
     assert attrs["d"]() == SomethingGeneric[FwTest]
     assert attrs["d2"]() == SomethingGeneric[FwTest]
 
     (cls, attrs, init) = _typing.type_hints(attrs["d2"]())
+    assert cls is SomethingGeneric
     assert attrs["sga"] is FwTest
     assert attrs["forward"]() is SomethingNormal
     assert attrs["forward_generic"]() == FWR[SomethingNormal]
     assert attrs["forward_generic2"]() == FWR[FwTest]
+
+
+def test_class_hints_deep_generic():
+    T = typing.TypeVar("T")
+
+    class A(typing.Generic[T]):
+        a: T
+
+    class B(typing.Generic[T]):
+        b: A[T]
+
+    class C(typing.Generic[T]):
+        c: B[T]
+        c2: A[B[T]]
+
+    class D(typing.Generic[T]):
+        d: C[B[A[T]]]
+
+    (cls, attrs, init) = _typing.type_hints(A[FwTest])
+    assert cls is A
+    assert attrs["a"] is FwTest
+
+    (cls, attrs, init) = _typing.type_hints(B[FwTest])
+    assert cls is B
+    assert attrs["b"] == A[FwTest]
+
+    (cls, attrs, init) = _typing.type_hints(C[FwTest])
+    assert cls is C
+    assert attrs["c"] == B[FwTest]
+    assert attrs["c2"] == A[B[FwTest]]
+
+    (cls, attrs, init) = _typing.type_hints(D[FwTest])
+    assert cls is D
+    assert attrs["d"] == C[B[A[FwTest]]]
+
+
+def test_class_hints_deep_generic2():
+    TA = typing.TypeVar("TA")
+    TB = typing.TypeVar("TB")
+    TC = typing.TypeVar("TC")
+    TD = typing.TypeVar("TD")
+
+    class A(typing.Generic[TA]):
+        a: TA
+
+    class B(typing.Generic[TB]):
+        b: A[TB]
+
+    class C(typing.Generic[TC]):
+        c: B[TC]
+        c2: A[B[TC]]
+
+    class D(typing.Generic[TD]):
+        d: C[B[A[TD]]]
+
+    (cls, attrs, init) = _typing.type_hints(A[FwTest])
+    assert cls is A
+    assert attrs["a"] is FwTest
+
+    (cls, attrs, init) = _typing.type_hints(B[FwTest])
+    assert cls is B
+    assert attrs["b"] == A[FwTest]
+
+    (cls, attrs, init) = _typing.type_hints(C[FwTest])
+    assert cls is C
+    assert attrs["c"] == B[FwTest]
+    assert attrs["c2"] == A[B[FwTest]]
+
+    (cls, attrs, init) = _typing.type_hints(D[FwTest])
+    assert cls is D
+    assert attrs["d"] == C[B[A[FwTest]]]

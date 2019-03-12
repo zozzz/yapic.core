@@ -23,6 +23,7 @@ class _PyPtr {
 		inline ~_PyPtr() { Py_XDECREF(_var); }
 		inline O& operator* () const { return *_var; }
 		inline O* operator-> () const { return _var; }
+		inline operator bool() const { return _var != NULL; }
 
 		inline _PyPtr<O>& operator= (const _PyPtr<O>& other) {
 			if (this != &other) {

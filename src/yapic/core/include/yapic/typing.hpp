@@ -37,9 +37,10 @@ namespace Yapic {
 
             inline static bool Check(PyObject* o) {
                 assert(o != NULL);
-                return PyObject_TypeCheck(o, const_cast<PyTypeObject*>(&Type));
+                return Py_TYPE(o) == const_cast<PyTypeObject*>(&Type);
             }
 
+        public:
             PyObject_HEAD
             PyObject* decl;
 
@@ -71,8 +72,13 @@ namespace Yapic {
                 return PyUnicode_FromFormat("<ForwardDecl>");
             }
 
+            inline bool IsGeneric() const {
+                return !IsForwardTuple(decl);
+            }
+
             PyObject* Resolve() {
                 if (IsForwardTuple(decl)) {
+                    // YapicTyping_DUMP(decl);
                     PyObject* locals = PyTuple_GET_ITEM(decl, 2);
                     PyObject* ev = PyEval_EvalCode(
                         PyTuple_GET_ITEM(decl, 0),
@@ -88,6 +94,21 @@ namespace Yapic {
                     }
                 } else {
                     return Resolve(decl);
+                }
+            }
+
+            PyObject* UnpackGeneric() {
+                assert(IsGeneric());
+                PyPtr<> args = PyObject_GetAttr(decl, __args__);
+                if (args) {
+                    if (PyTuple_GET_SIZE(args) == 1) {
+                        return New(PyTuple_GET_ITEM(args, 0), __args__, copy_with);
+                    } else {
+                        PyErr_SetString(PyExc_ValueError, "Try to unpack generic type with more than one arguments");
+                        return NULL;
+                    }
+                } else {
+                    return NULL;
                 }
             }
 
@@ -145,16 +166,19 @@ namespace Yapic {
                 Py_CLEAR(GenericAlias);
                 Py_CLEAR(ForwardRef);
                 Py_CLEAR(TypeVar);
+                Py_CLEAR(MethodWrapperType);
                 Py_CLEAR(__origin__);
                 Py_CLEAR(__args__);
                 Py_CLEAR(__parameters__);
                 Py_CLEAR(__module__);
                 Py_CLEAR(__forward_code__);
                 Py_CLEAR(__orig_bases__);
+                Py_CLEAR(__orig_class__);
                 Py_CLEAR(__name__);
                 Py_CLEAR(__annotations__);
                 Py_CLEAR(__dict__);
                 Py_CLEAR(__init__);
+                Py_CLEAR(__call__);
                 Py_CLEAR(copy_with);
                 Py_DECREF(const_cast<PyTypeObject*>(&ForwardDecl::Type));
             }
@@ -174,10 +198,12 @@ namespace Yapic {
                 Yapic_Typing_StrCache(__module__, "__module__");
                 Yapic_Typing_StrCache(__forward_code__, "__forward_code__");
                 Yapic_Typing_StrCache(__orig_bases__, "__orig_bases__");
+                Yapic_Typing_StrCache(__orig_class__, "__orig_class__");
                 Yapic_Typing_StrCache(__name__, "__name__");
                 Yapic_Typing_StrCache(__annotations__, "__annotations__");
                 Yapic_Typing_StrCache(__dict__, "__dict__");
                 Yapic_Typing_StrCache(__init__, "__init__");
+                Yapic_Typing_StrCache(__call__, "__call__");
                 Yapic_Typing_StrCache(copy_with, "copy_with");
 
                 if ((ForwardDecl::Type.tp_flags & Py_TPFLAGS_READY) != Py_TPFLAGS_READY) {
@@ -186,6 +212,16 @@ namespace Yapic {
                     }
                 }
                 Py_INCREF(const_cast<PyTypeObject*>(&ForwardDecl::Type));
+
+                PyObject* wrapper = PyObject_GetAttr(reinterpret_cast<PyObject*>(&PyUnicode_Type), __init__);
+                if (wrapper == NULL) {
+                    return false;
+                } else {
+                    MethodWrapperType = (PyObject*)Py_TYPE(wrapper);
+                    assert(MethodWrapperType != NULL);
+                    Py_INCREF(MethodWrapperType);
+                    Py_DECREF(wrapper);
+                }
 
                 return true;
             }
@@ -368,11 +404,12 @@ namespace Yapic {
                 PyPtr<> mro = ResolveMro(type, vars);
 
                 if (mro.IsValid()) {
-                    PyPtr<> attrs = PyDict_New();
-                    if (attrs.IsNull()) {
-                        return NULL;
-                    }
+                    // PyPtr<> attrs = PyDict_New();
+                    // if (attrs.IsNull()) {
+                    //     return NULL;
+                    // }
 
+                    PyPtr<> attrs;
                     PyPtr<> init;
 
                     PyObject* mroEntry;
@@ -386,6 +423,12 @@ namespace Yapic {
                         PyObject* currentVars = PyTuple_GET_ITEM(mroEntry, 2);
                         annots = PyObject_GetAttr(currentType, __annotations__);
                         if (annots.IsValid()) {
+                            if (attrs.IsNone()) {
+                                attrs = PyDict_New();
+                                if (!attrs) {
+                                    return NULL;
+                                }
+                            }
                             if (!ResolveAnnots(currentType, annots, currentVars, attrs)) {
                                 return NULL;
                             }
@@ -416,6 +459,8 @@ namespace Yapic {
                     PyObject* res = PyTuple_New(3);
                     if (res != NULL) {
                         PyObject* oc = PyTuple_GET_ITEM(mro, 0);
+                        assert(oc != NULL);
+                        oc = PyTuple_GET_ITEM(oc, 0);
                         Py_INCREF(oc);
                         PyTuple_SET_ITEM(res, 0, oc);
                         PyTuple_SET_ITEM(res, 1, attrs.Steal());
@@ -461,6 +506,20 @@ namespace Yapic {
                 PyObject* bound = type;
 
                 if (CallableInfo(callable, func, bound)) {
+                    if (!type && bound) {
+                        PyPtr<> oclass = PyObject_GetAttr(bound, __orig_class__);
+                        if (oclass) {
+                            PyPtr<> nvars = ResolveTypeVars(oclass, vars);
+                            if (nvars) {
+                                return ResolveArguments(func, 1, oclass, nvars);
+                            } else {
+                                return NULL;
+                            }
+                        } else {
+                            PyErr_Clear();
+                        }
+                    }
+
                     return ResolveArguments(func, bound == NULL ? 0 : 1, type, vars);
                 } else {
                     return NULL;
@@ -726,27 +785,23 @@ namespace Yapic {
                                         newA = oldA;
                                     }
 
-                                    newA = _SubstType(newA, value, vars, locals, hasFwd);
+                                    newA = _SubstType(newA, type, vars, locals, hasFwd);
                                     if (newA == NULL) {
                                         return NULL;
                                     }
                                     PyTuple_SET_ITEM(newArgs, i, newA);
                                 }
 
-                                PyPtr<> params = PyObject_GetAttr(value, __parameters__);
-                                if (params.IsNull() || PyTuple_GET_SIZE(params) == 0) {
-                                    PyPtr<> copy = PyObject_GetAttr(value, copy_with);
-                                    if (copy.IsValid()) {
-                                        PyPtr<> copyArgs = PyTuple_Pack(1, newArgs.AsObject());
-                                        if (copyArgs.IsNull()) {
-                                            return NULL;
-                                        }
+                                PyPtr<> copy = PyObject_GetAttr(value, copy_with);
+                                if (copy) {
+                                    PyPtr<> copyArgs = PyTuple_Pack(1, newArgs.AsObject());
+                                    if (copyArgs) {
                                         return PyObject_CallObject(copy, copyArgs);
                                     } else {
                                         return NULL;
                                     }
                                 } else {
-                                    return PyObject_GetItem(value, newArgs);
+                                    return NULL;
                                 }
                             } else {
                                 return NULL;
@@ -766,17 +821,46 @@ namespace Yapic {
 
             bool CallableInfo(PyObject* callable, PyFunctionObject*& func, PyObject*& bound) {
                 if (PyFunction_Check(callable)) {
-					func = (PyFunctionObject*) callable;
+                    func = (PyFunctionObject*) callable;
 					return true;
                 } else if (PyMethod_Check(callable)) {
                     func = (PyFunctionObject*) PyMethod_GET_FUNCTION(callable);
 					assert(PyFunction_Check(func));
 					bound = PyMethod_GET_SELF(callable);
                     return true;
-                } else {
-                    PyErr_Format(PyExc_TypeError, "Got unsupported callable: %R", callable);
+                } else if (PyObject_IsInstance(callable, MethodWrapperType)) {
+                    PyErr_Format(PyExc_TypeError, "Cannot get type hints from built / c-extension method: %R", callable);
                     return false;
+                } else {
+                    PyTypeObject* ct = reinterpret_cast<PyTypeObject*>(Py_TYPE(callable));
+                    PyObject* mro = ct->tp_mro;
+                    assert(mro != NULL);
+                    assert(PyTuple_CheckExact(mro));
+
+                    PyObject* mroEntry;
+                    PyObject* clsDict;
+                    PyPtr<> callFn(NULL);
+                    Py_ssize_t l = PyTuple_GET_SIZE(mro) - 1; // skip object from mro
+                    for (Py_ssize_t i = 0; i < l; ++i) {
+                        mroEntry = PyTuple_GET_ITEM(mro, i);
+                        clsDict = PyObject_GetAttr(mroEntry, __dict__);
+                        if (clsDict == NULL) {
+                            PyErr_Clear();
+                            continue;
+                        }
+
+                        callFn = PyObject_GetItem(clsDict, __call__);
+                        Py_DECREF(clsDict);
+
+                        if (callFn) {
+                            bound = callable;
+                            return CallableInfo(callFn, func, bound);
+                        }
+                    }
                 }
+
+                PyErr_Format(PyExc_TypeError, "Got unsupported callable: %R", callable);
+                return false;
             }
 
             PyObject* ResolveArguments(PyFunctionObject* func, int offset, PyObject* type, PyObject* vars) {
@@ -940,6 +1024,7 @@ namespace Yapic {
             PyObject* GenericAlias;
             PyObject* ForwardRef;
             PyObject* TypeVar;
+            PyObject* MethodWrapperType;
 
             PyObject* __origin__;
             PyObject* __args__;
@@ -947,10 +1032,12 @@ namespace Yapic {
             PyObject* __module__;
             PyObject* __forward_code__;
             PyObject* __orig_bases__;
+            PyObject* __orig_class__;
             PyObject* __name__;
             PyObject* __annotations__;
             PyObject* __dict__;
             PyObject* __init__;
+            PyObject* __call__;
             PyObject* copy_with;
     };
 
