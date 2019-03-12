@@ -18,6 +18,7 @@ template<typename O>
 class _PyPtr {
 
 	public:
+		inline _PyPtr(): _var(Py_None) { Py_INCREF(Py_None); }
 		inline _PyPtr(O* var): _var(var) {  }
 		inline ~_PyPtr() { Py_XDECREF(_var); }
 		inline O& operator* () const { return *_var; }
@@ -35,7 +36,11 @@ class _PyPtr {
 		inline _PyPtr<O>& operator= (_PyPtr<O>&& other) {
 			if (this != &other) {
 				Py_XDECREF(_var);
-				_var = other.Steal();
+				if (other._var != NULL) {
+					_var = other.Steal();
+				} else {
+					_var = NULL;
+				}
 			}
 			return *this;
 		}
@@ -61,9 +66,10 @@ class _PyPtr {
 
 		inline bool IsNull() const { return _var == NULL; }
 		inline bool IsValid() const { return _var != NULL; }
+		inline bool IsNone() const { return _var == Py_None; }
 		inline void Incref() { assert(_var != NULL); Py_INCREF(_var); }
 		inline void Decref() { assert(_var != NULL); Py_DECREF(_var); }
-		inline O* Steal() { O* tmp = _var; _var = NULL; return tmp; }
+		inline O* Steal() { assert(_var != NULL); O* tmp = _var; _var = NULL; return tmp; }
 		inline void Clear() { Py_CLEAR(_var); }
 	protected:
 		O* _var = NULL;
@@ -79,10 +85,9 @@ public:
 	inline operator PyObject* () const { return (PyObject*) _var; }
 
 	inline _PyPtr<O>& operator= (const PyObject* other) {
-		if (_var != ((O*) other)) {
-			Py_XDECREF(_var);
-			_var = (O*) other;
-		}
+		// Py_XINCREF(other);
+		Py_XDECREF(_var);
+		_var = (O*) other;
 		return *this;
 	}
 };
