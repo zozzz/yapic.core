@@ -349,3 +349,26 @@ def test_class_hints_deep_generic2():
     (cls, attrs, init) = _typing.type_hints(D[FwTest])
     assert cls is D
     assert attrs["d"] == C[B[A[FwTest]]]
+
+
+def test_class_hints_deep_generic3():
+    Impl = typing.TypeVar("Impl")
+    T = typing.TypeVar("T")
+    JoinedT = typing.TypeVar("JoinedT")
+
+    class Relation(typing.Generic[Impl, T]):
+        def __init__(self, joined: Impl):
+            pass
+
+    class OneToMany(typing.Generic[JoinedT]):
+        def __init__(self, joined: JoinedT):
+            pass
+
+    class One(typing.Generic[JoinedT], Relation[OneToMany[JoinedT], JoinedT]):
+        x: OneToMany[JoinedT]
+
+    (cls, attrs, init) = _typing.type_hints(One[FwTest])
+
+    assert cls is One
+    assert attrs["x"] == OneToMany[FwTest]
+    assert init[0][0][1] == OneToMany[FwTest]

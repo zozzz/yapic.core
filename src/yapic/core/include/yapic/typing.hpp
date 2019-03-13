@@ -76,6 +76,11 @@ namespace Yapic {
                 return !IsForwardTuple(decl);
             }
 
+            PyObject* Value() {
+                Py_INCREF(decl);
+                return decl;
+            }
+
             PyObject* Resolve() {
                 if (IsForwardTuple(decl)) {
                     // YapicTyping_DUMP(decl);
@@ -308,19 +313,14 @@ namespace Yapic {
                                 PyObject* argResult;
                                 for (Py_ssize_t i = 0; i < l; ++i) {
                                     argItem = PyTuple_GET_ITEM(args, i);
+                                    argResult = PyDict_GetItem(vars, argItem);
+                                    if (argResult == NULL) {
+                                        argResult = argItem;
+                                    }
 
-                                    if (IsForwardRef(argItem)) {
-                                        // TODO: locals...
-                                        argResult = NewForwardRef(argItem, type, Py_None);
-                                        if (argResult == NULL) {
-                                            goto error;
-                                        }
-                                    } else {
-                                        argResult = PyDict_GetItem(vars, argItem);
-                                        if (argResult == NULL) {
-                                            argResult = argItem;
-                                        }
-                                        Py_INCREF(argResult);
+                                    argResult = SubstType(argResult, type, vars, Py_None);
+                                    if (argResult == NULL) {
+                                        goto error;
                                     }
 
                                     if (PyDict_SetItem(resolved, PyTuple_GET_ITEM(params, i), argResult) == -1) {
@@ -618,8 +618,8 @@ namespace Yapic {
                         for (Py_ssize_t i = 0; i < l; ++i) {
                             PyObject* base = PyTuple_GET_ITEM(bases, i);
                             if (ResolveMro(base, mro, resolved, selfVars)) {
-                                PyObject* entry = PyTuple_New(3);
 
+                                PyObject* entry = PyTuple_New(3);
                                 if (entry != NULL) {
                                     Py_INCREF(origin);
                                     Py_INCREF(type);
@@ -762,7 +762,7 @@ namespace Yapic {
             PyObject* _SubstType(PyObject* value, PyObject* type, PyObject* vars, PyObject* locals, bool *hasFwd) {
                 if (IsTypeVar(value)) {
                     PyObject* exists = PyDict_GetItem(vars, value);
-                    if (exists != NULL) {
+                    if (exists != NULL && exists != value) {
                         return _SubstType(exists, type, vars, locals, hasFwd);
                     }
                 } else if (IsForwardRef(value)) {
