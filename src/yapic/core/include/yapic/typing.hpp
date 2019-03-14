@@ -42,15 +42,18 @@ namespace Yapic {
 
         public:
             PyObject_HEAD
+            PyObject* expr;
             PyObject* decl;
 
-            static PyObject* New(PyObject* decl, PyObject* __args__, PyObject* copy_with) {
+            static PyObject* New(PyObject* expr, PyObject* decl, PyObject* __args__, PyObject* copy_with) {
                 assert((Type.tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);
                 ForwardDecl* self = (ForwardDecl*) Type.tp_alloc(const_cast<PyTypeObject*>(&Type), Type.tp_basicsize);
                 if (self != NULL) {
+                    self->expr = expr;
                     self->decl = decl;
                     self->__args__ = __args__;
                     self->copy_with = copy_with;
+                    Py_INCREF(expr);
                     Py_INCREF(decl);
                     Py_INCREF(__args__);
                     Py_INCREF(copy_with);
@@ -63,13 +66,14 @@ namespace Yapic {
             }
 
             static void __dealloc__(ForwardDecl* self) {
+                Py_CLEAR(self->expr);
                 Py_CLEAR(self->decl);
                 Py_CLEAR(self->__args__);
                 Py_CLEAR(self->copy_with);
             }
 
             static PyObject* __repr__(ForwardDecl* self) {
-                return PyUnicode_FromFormat("<ForwardDecl>");
+                return PyUnicode_FromFormat("<ForwardDecl %R>", self->expr);
             }
 
             inline bool IsGeneric() const {
@@ -79,6 +83,11 @@ namespace Yapic {
             PyObject* Value() {
                 Py_INCREF(decl);
                 return decl;
+            }
+
+            PyObject* Expr() {
+                Py_INCREF(expr);
+                return expr;
             }
 
             PyObject* Resolve() {
@@ -107,7 +116,7 @@ namespace Yapic {
                 PyPtr<> args = PyObject_GetAttr(decl, __args__);
                 if (args) {
                     if (PyTuple_GET_SIZE(args) == 1) {
-                        return New(PyTuple_GET_ITEM(args, 0), __args__, copy_with);
+                        return New(PyTuple_GET_ITEM(args, 0), PyTuple_GET_ITEM(args, 0), __args__, copy_with);
                     } else {
                         PyErr_SetString(PyExc_ValueError, "Try to unpack generic type with more than one arguments");
                         return NULL;
@@ -177,6 +186,7 @@ namespace Yapic {
                 Py_CLEAR(__parameters__);
                 Py_CLEAR(__module__);
                 Py_CLEAR(__forward_code__);
+                Py_CLEAR(__forward_arg__);
                 Py_CLEAR(__orig_bases__);
                 Py_CLEAR(__orig_class__);
                 Py_CLEAR(__name__);
@@ -202,6 +212,7 @@ namespace Yapic {
                 Yapic_Typing_StrCache(__parameters__, "__parameters__");
                 Yapic_Typing_StrCache(__module__, "__module__");
                 Yapic_Typing_StrCache(__forward_code__, "__forward_code__");
+                Yapic_Typing_StrCache(__forward_arg__, "__forward_arg__");
                 Yapic_Typing_StrCache(__orig_bases__, "__orig_bases__");
                 Yapic_Typing_StrCache(__orig_class__, "__orig_class__");
                 Yapic_Typing_StrCache(__name__, "__name__");
@@ -522,7 +533,7 @@ namespace Yapic {
             }
 
         private:
-            PyObject* NewForwardRef(PyCodeObject* code, PyDictObject* globals, PyDictObject* locals) {
+            PyObject* NewForwardRef(PyCodeObject* code, PyObject* expr, PyDictObject* globals, PyDictObject* locals) {
                 PyPtr<> result = PyTuple_New(3);
                 if (result.IsValid()) {
                     Py_INCREF(code);
@@ -533,7 +544,7 @@ namespace Yapic {
                     PyTuple_SET_ITEM(result, 1, (PyObject*)globals);
                     PyTuple_SET_ITEM(result, 2, (PyObject*)locals);
 
-                    return ForwardDecl::New(result, __args__, copy_with);
+                    return ForwardDecl::New(expr, result, __args__, copy_with);
                 } else {
                     return NULL;
                 }
@@ -543,25 +554,35 @@ namespace Yapic {
                 assert(IsForwardRef(ref));
 
                 PyPtr<PyCodeObject> code = (PyCodeObject*)PyObject_GetAttr(ref, __forward_code__);
-                if (code.IsValid()) {
-                    PyPtr<> moduleName = PyObject_GetAttr(type, __module__);
-                    if (moduleName.IsValid()) {
-                        PyPtr<> module = PyImport_Import(moduleName);
-                        if (module.IsValid()) {
-                            PyObject* moduleDict = PyModule_GetDict(module); // borrowed
-                            if (moduleDict != NULL) {
-                                return NewForwardRef((PyCodeObject*)code, (PyDictObject*)moduleDict, (PyDictObject*)locals);
-                            }
-                        }
-                    }
+                if (!code) {
+                    return NULL;
                 }
-                return NULL;
+
+                PyPtr<> expr = PyObject_GetAttr(ref, __forward_arg__);
+                if (!expr) {
+                    return NULL;
+                }
+
+                PyPtr<> moduleName = PyObject_GetAttr(type, __module__);
+                if (!moduleName) {
+                    return NULL;
+                }
+
+                PyPtr<> module = PyImport_Import(moduleName);
+                if (!module) {
+                    return NULL;
+                }
+
+                PyObject* moduleDict = PyModule_GetDict(module); // borrowed
+                assert(moduleDict != NULL);
+
+                return NewForwardRef((PyCodeObject*)code, expr, (PyDictObject*)moduleDict, (PyDictObject*)locals);
             }
 
-            PyObject* NewForwardRef(const char* ref, PyDictObject* globals, PyDictObject* locals) {
+            PyObject* NewForwardRef(const char* ref, PyObject* expr, PyDictObject* globals, PyDictObject* locals) {
                 PyPtr<PyCodeObject> code = (PyCodeObject*)Py_CompileString(ref, "<string>", Py_eval_input);
                 if (code.IsValid()) {
-                    return NewForwardRef((PyCodeObject*)code, globals, locals);
+                    return NewForwardRef((PyCodeObject*)code, expr, globals, locals);
                 } else {
                     return NULL;
                 }
@@ -593,7 +614,7 @@ namespace Yapic {
             PyObject* NewForwardRef(PyUnicodeObject* str, PyDictObject* globals, PyDictObject* locals) {
                 PyPtr<> ascii = PyUnicode_AsASCIIString((PyObject*)str);
                 if (ascii.IsValid()) {
-                    return NewForwardRef(PyBytes_AS_STRING(ascii), globals, locals);
+                    return NewForwardRef(PyBytes_AS_STRING(ascii), (PyObject*)str, globals, locals);
                 }
                 return NULL;
             }
@@ -748,7 +769,7 @@ namespace Yapic {
                 bool hasFwd = false;
                 PyObject* res = _SubstType(value, type, vars, locals, &hasFwd);
                 if (res != NULL && hasFwd && !ForwardDecl::Check(res)) {
-                    return ForwardDecl::New(res, __args__, copy_with);
+                    return ForwardDecl::New(res, res, __args__, copy_with);
                 } else {
                     return res;
                 }
@@ -1026,6 +1047,7 @@ namespace Yapic {
             PyObject* __parameters__;
             PyObject* __module__;
             PyObject* __forward_code__;
+            PyObject* __forward_arg__;
             PyObject* __orig_bases__;
             PyObject* __orig_class__;
             PyObject* __name__;
