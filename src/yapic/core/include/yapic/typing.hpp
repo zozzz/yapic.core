@@ -404,11 +404,6 @@ namespace Yapic {
                 PyPtr<> mro = ResolveMro(type, vars);
 
                 if (mro.IsValid()) {
-                    // PyPtr<> attrs = PyDict_New();
-                    // if (attrs.IsNull()) {
-                    //     return NULL;
-                    // }
-
                     PyPtr<> attrs;
                     PyPtr<> init;
 
