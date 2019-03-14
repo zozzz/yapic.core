@@ -54,6 +54,14 @@ public:
         }
     }
 
+    static PyObject* is_forward_decl(PyObject* module, PyObject* o) {
+        if (State(module)->Typing.IsForwardDecl(o)) {
+            Py_RETURN_TRUE;
+        } else {
+            Py_RETURN_FALSE;
+        }
+    }
+
     static PyObject* resolve_type_vars(PyObject* module, PyObject* o) {
         return State(module)->Typing.ResolveTypeVars(o);
     }
@@ -84,6 +92,7 @@ public:
 		Yapic_Method(is_generic, METH_O, NULL)
 		Yapic_Method(is_generic_type, METH_O, NULL)
 		Yapic_Method(is_forward_ref, METH_O, NULL)
+        Yapic_Method(is_forward_decl, METH_O, NULL)
 		Yapic_Method(resolve_type_vars, METH_O, NULL)
 		Yapic_Method(resolve_mro, METH_O, NULL)
 		Yapic_Method(type_hints, METH_O, NULL)

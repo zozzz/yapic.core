@@ -372,3 +372,15 @@ def test_class_hints_deep_generic3():
     assert cls is One
     assert attrs["x"] == OneToMany[FwTest]
     assert init[0][0][1] == OneToMany[FwTest]
+
+
+def test_forward_decl():
+    T = typing.TypeVar("T")
+
+    class A(typing.Generic[T]):
+        a: T
+
+    (cls, attrs, init) = _typing.type_hints(A["FwTest"])
+    assert cls is A
+    assert _typing.is_forward_decl(attrs["a"])
+    assert repr(attrs["a"]) == "<ForwardDecl 'FwTest'>"
