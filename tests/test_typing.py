@@ -406,3 +406,10 @@ def test_forward_decl():
     assert cls is C
     assert _typing.is_forward_decl(arg)
     assert arg() == B[FwTest, A[FwTest]]
+
+    unpacked = _typing.unpack_forward_decl(arg)
+    assert unpacked[0] is B
+    assert _typing.is_forward_decl(unpacked[1][0])
+    assert _typing.is_forward_decl(unpacked[1][1])
+    assert unpacked[1][0]() == FwTest
+    assert unpacked[1][1]() == A[FwTest]

@@ -519,6 +519,54 @@ namespace Yapic {
                 }
             }
 
+            /**
+             * returns tuple (
+             *      genericClass,
+             *      (<ForwardDecl 1>, <ForwardDecl 2>, <ForwardDecl N>)
+             * )
+             */
+            PyObject* UnpackForwardDecl(PyObject* o) {
+                assert(o != NULL);
+                assert(IsForwardDecl(o));
+
+                ForwardDecl* fwd = (ForwardDecl*)o;
+                if (fwd->IsGeneric()) {
+                    PyObject* decl = fwd->decl;
+                    PyPtr<> args = PyObject_GetAttr(decl, __args__);
+                    if (args) {
+                        PyPtr<> origin = PyObject_GetAttr(decl, __origin__);
+                        if (origin) {
+                            Py_ssize_t l = PyTuple_GET_SIZE(args);
+                            PyPtr<> result = PyTuple_New(l);
+
+                            for (Py_ssize_t i = 0; i < l; ++i) {
+                                PyObject* arg = PyTuple_GET_ITEM(args, i);
+                                if (IsForwardDecl(arg)) {
+                                    Py_INCREF(arg);
+                                    PyTuple_SET_ITEM(result, i, arg);
+                                } else {
+                                    PyObject* newFwd = NewForwardDecl(arg, arg);
+                                    if (newFwd != NULL) {
+                                        PyTuple_SET_ITEM(result, i, newFwd);
+                                    } else {
+                                        return NULL;
+                                    }
+                                }
+                            }
+
+                            return PyTuple_Pack(2, origin.AsObject(), result.AsObject());
+                        } else {
+                            return NULL;
+                        }
+                    } else {
+                        return NULL;
+                    }
+                } else {
+                    PyErr_Format(PyExc_ValueError, "The given 'ForwardDecl' instance is not generic: %R", o);
+                    return NULL;
+                }
+            }
+
         private:
             PyObject* NewForwardDecl(PyObject* expr, PyObject* decl) {
                 assert((ForwardDeclType->tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);

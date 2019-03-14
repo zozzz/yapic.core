@@ -87,6 +87,10 @@ public:
         return NULL;
     }
 
+    static PyObject* unpack_forward_decl(PyObject* module, PyObject* o) {
+        return State(module)->Typing.UnpackForwardDecl(o);
+    }
+
 	Yapic_METHODS_BEGIN
 		Yapic_Method(get_typing, METH_NOARGS, NULL)
 		Yapic_Method(is_generic, METH_O, NULL)
@@ -98,6 +102,7 @@ public:
 		Yapic_Method(type_hints, METH_O, NULL)
 		Yapic_Method(callable_hints, METH_O, NULL)
 		Yapic_Method(callable_hints_with_type, METH_VARARGS, NULL)
+        Yapic_Method(unpack_forward_decl, METH_O, NULL)
 	Yapic_METHODS_END
 };
 
