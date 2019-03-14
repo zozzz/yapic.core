@@ -376,6 +376,7 @@ def test_class_hints_deep_generic3():
 
 def test_forward_decl():
     T = typing.TypeVar("T")
+    T2 = typing.TypeVar("T2")
 
     class A(typing.Generic[T]):
         a: T
@@ -384,3 +385,24 @@ def test_forward_decl():
     assert cls is A
     assert _typing.is_forward_decl(attrs["a"])
     assert repr(attrs["a"]) == "<ForwardDecl 'FwTest'>"
+
+    class B(typing.Generic[T, T2]):
+        b: T
+        b2: T2
+
+    (cls, attrs, init) = _typing.type_hints(B["FwTest", A["FwTest"]])
+    assert cls is B
+    assert _typing.is_forward_decl(attrs["b"])
+    assert _typing.is_forward_decl(attrs["b2"])
+    assert attrs["b"]() == FwTest
+    assert attrs["b2"]() == A[FwTest]
+
+    class C(typing.Generic[T]):
+        def __init__(self, a: B[T, A[T]]):
+            pass
+
+    (cls, attrs, init) = _typing.type_hints(C["FwTest"])
+    arg = init[0][0][1]
+    assert cls is C
+    assert _typing.is_forward_decl(arg)
+    assert arg() == B[FwTest, A[FwTest]]

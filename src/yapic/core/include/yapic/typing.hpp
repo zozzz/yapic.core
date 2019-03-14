@@ -121,20 +121,21 @@ namespace Yapic {
 
                         for (Py_ssize_t i = 0; i < l; ++i) {
                             PyPtr<> arg = Resolve(PyTuple_GET_ITEM(args, i));
-                            if (arg.IsNull()) {
-                                return NULL;
+                            if (arg) {
+                                PyTuple_SET_ITEM(newArgs, i, arg.Steal());
                             } else {
-                                PyTuple_SET_ITEM(newArgs, 0, arg.Steal());
+                                return NULL;
                             }
                         }
 
                         PyPtr<> copy = PyObject_GetAttr(obj, copy_with);
-                        if (copy.IsValid()) {
+                        if (copy) {
                             PyPtr<> copyArgs = PyTuple_Pack(1, newArgs.AsObject());
-                            if (copyArgs.IsNull()) {
+                            if (copyArgs) {
+                                return PyObject_CallObject(copy, copyArgs);
+                            } else {
                                 return NULL;
                             }
-                            return PyObject_CallObject(copy, copyArgs);
                         } else {
                             return NULL;
                         }
