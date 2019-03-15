@@ -28,7 +28,7 @@ class _Memory {
 public:
 	using DT = _DT;
 
-	inline _Memory(): _heap(NULL), cursor(_initial), _end(_initial + InitialSize) {
+	inline _Memory(): cursor(_initial), _heap(NULL), _end(_initial + InitialSize) {
 	}
 
 	inline ~_Memory() {
@@ -85,8 +85,8 @@ public:
 
 	DT* cursor;
 private:
-	DT* _end;
 	DT* _heap;
+	DT* _end;
 	DT _initial[InitialSize];
 };
 
@@ -95,7 +95,7 @@ class _BytesMemory {
 public:
 	using DT = char;
 
-	inline _BytesMemory(): _bytes(NULL), cursor(NULL), _end(NULL) {}
+	inline _BytesMemory(): cursor(NULL), _bytes(NULL), _end(NULL) {}
 
 	inline ~_BytesMemory() {
 		Py_XDECREF(_bytes);
@@ -153,8 +153,8 @@ public:
 
 	DT* cursor;
 private:
-	DT* _end;
 	PyObject* _bytes;
+	DT* _end;
 };
 
 
@@ -198,9 +198,9 @@ struct _StringTraits {
 
 	template<typename Memory, typename Mc>
 	static inline bool AppendString(Memory& mem, PyObject* obj, Mc& maxchar) {
-		int kind = PyUnicode_KIND(obj);
+		unsigned int kind = (unsigned int)PyUnicode_KIND(obj);
 		maxchar |= PyUnicode_MAX_CHAR_VALUE(obj);
-		if (sizeof(Memory::DT) == 1 && kind > sizeof(Memory::DT)) {
+		if (sizeof(typename Memory::DT) == 1 && kind > sizeof(typename Memory::DT)) {
 			PyErr_SetString(PyExc_UnicodeError, "The given string must be ascii encoded.");
 			return false;
 		} else {
@@ -273,7 +273,6 @@ struct _StringTraits {
 
 	template<typename Input>
 	static inline Py_ssize_t EncodedCharSize(Input ch) {
-		assert(sizeof(Storage) >= sizeof(Input));
 		return 1;
 	}
 
@@ -466,14 +465,14 @@ namespace _Encoding {
 
 		template<typename Input>
 		static inline Py_ssize_t EncodedCharSize(Input ch) {
-			if (ch <= 127) {
+			if (ch <= (Input)127) {
 				return 1;
-			} else if (ch <= UPPER_2B_CHAR) {
+			} else if (ch <= (Input)UPPER_2B_CHAR) {
 				return 2;
-			} else if (ch <= UPPER_3B_CHAR) {
+			} else if (ch <= (Input)UPPER_3B_CHAR) {
 				return 3;
 			} else {
-				assert(ch <= UPPER_4B_CHAR);
+				assert(ch <= (Input)UPPER_4B_CHAR);
 				return 4;
 			}
 		}

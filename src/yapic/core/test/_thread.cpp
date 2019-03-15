@@ -2,13 +2,13 @@
 #include <yapic/module.hpp>
 #include <yapic/thread.hpp>
 
-class Module;
+class ThreadModule;
 
-using ModuleVar = Yapic::ModuleVar<Module>;
-using ModuleExc = Yapic::ModuleExc<Module>;
+using ModuleVar = Yapic::ModuleVar<ThreadModule>;
+using ModuleExc = Yapic::ModuleExc<ThreadModule>;
 
 
-class Module : public Yapic::Module<Module> {
+class ThreadModule : public Yapic::Module<ThreadModule> {
 public:
 	static constexpr const char* __name__ = "yapic.core.test._thread";
 
@@ -16,7 +16,7 @@ public:
 	Yapic::Lock* lock;
 	Yapic::RLock* rlock;
 
-	static inline int __init__(PyObject* module, Module* state) {
+	static inline int __init__(PyObject* module, ThreadModule* state) {
 		state->thread_safe = PyDict_New();
 
 		state->lock = new Yapic::Lock();
@@ -40,7 +40,7 @@ public:
 
 	static PyObject* set(PyObject* module, PyObject* args, PyObject* kwargs) {
 		static char* kwnames[] = {"key", "value", NULL};
-		Module* state = State(module);
+		ThreadModule* state = State(module);
 		PyObject* key;
 		PyObject* value;
 		if (PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwnames, &key, &value)) {
@@ -55,7 +55,7 @@ public:
 	}
 
 	static PyObject* get(PyObject* module, PyObject* key) {
-		Module* state = State(module);
+		ThreadModule* state = State(module);
 		Yapic::Lock::Auto lock(state->lock);
 		PyObject* value = PyDict_GetItemWithError(state->thread_safe, key);
 		if (value != NULL) {
@@ -70,7 +70,7 @@ public:
 
 	static PyObject* rset_sub(PyObject* module, PyObject* args, PyObject* kwargs) {
 		static char* kwnames[] = {"key", "value", NULL};
-		Module* state = State(module);
+		ThreadModule* state = State(module);
 		PyObject* key;
 		PyObject* value;
 		if (PyArg_ParseTupleAndKeywords(args, kwargs, "OO", kwnames, &key, &value)) {
@@ -85,7 +85,7 @@ public:
 	}
 
 	static PyObject* rget_sub(PyObject* module, PyObject* key) {
-		Module* state = State(module);
+		ThreadModule* state = State(module);
 		Yapic::RLock::Auto lock(state->rlock);
 		PyObject* value = PyDict_GetItemWithError(state->thread_safe, key);
 		if (value != NULL) {
@@ -96,13 +96,13 @@ public:
 
 
 	static PyObject* rset(PyObject* module, PyObject* args, PyObject* kwargs) {
-		Module* state = State(module);
+		ThreadModule* state = State(module);
 		Yapic::RLock::Auto lock(state->rlock);
 		return Self::rset_sub(module, args, kwargs);
 	}
 
 	static PyObject* rget(PyObject* module, PyObject* key) {
-		Module* state = State(module);
+		ThreadModule* state = State(module);
 		Yapic::RLock::Auto lock(state->rlock);
 		return Self::rget_sub(module, key);
 	}
@@ -118,5 +118,5 @@ public:
 
 
 PyMODINIT_FUNC PyInit__thread(void) {
-	return Module::Create();
+	return ThreadModule::Create();
 }

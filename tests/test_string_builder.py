@@ -2,12 +2,10 @@ import pytest
 from yapic.core.test import _string_builder
 
 
-@pytest.mark.parametrize("value", [
-    "Hello World",
-    "Árvíz",
-    "VeryLong" * 100
-])
+@pytest.mark.parametrize("value", ["Hello World", "Árvíz", "VeryLong" * 100])
 def test_ascii(value):
+    print(_string_builder)
+    print(dir(_string_builder))
     assert _string_builder.ascii_builder(value) == f"@Y@{value}@X@"
 
 
@@ -18,13 +16,7 @@ def test_ascii_bad():
     ex.match("The given string must be ascii encoded.")
 
 
-@pytest.mark.parametrize("value", [
-    "Hello World",
-    "Árvíz",
-    "VeryLong" * 100,
-    "ერთადერთი",
-    "ერთადერთი" * 100
-])
+@pytest.mark.parametrize("value", ["Hello World", "Árvíz", "VeryLong" * 100, "ერთადერთი", "ერთადერთი" * 100])
 def test_unicode(value):
     assert _string_builder.unicode_builder(value) == f"@Y@{value}@X@"
 

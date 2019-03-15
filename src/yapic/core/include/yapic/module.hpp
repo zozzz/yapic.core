@@ -64,12 +64,14 @@ public:
 	inline ModuleVar<Module>& Export(const char* name) {
 		assert(this->ref != NULL);
 		if (this->ref != NULL) {
-			Py_INCREF(this->ref);
-			if (PyModule_AddObject(Module::Instance(), name, (PyObject*) this->ref) == -1) {
-				Py_DECREF(this->ref);
+			// PyModule_AddObject steals a reference to value
+			if (PyModule_AddObject(Module::Instance(), name, (PyObject*) this->ref) == 0) {
+				Py_INCREF(this->ref);
+			} else {
 				throw _ModuleConst<Module>::Error;
 			}
 		}
+		return *this;
 	}
 };
 
@@ -85,10 +87,13 @@ public:
 		if (this->ref == NULL) {
 			throw _ModuleConst<Module>::Error;
 		}
+
 		this->_register();
-		// Py_INCREF(ref);
-		if (PyModule_AddObject(Module::Instance(), name, (PyObject*) this->ref) == -1) {
-			// Py_DECREF(ref);
+
+		// PyModule_AddObject steals a reference to value
+		if (PyModule_AddObject(Module::Instance(), name, (PyObject*) this->ref) == 0) {
+			Py_INCREF(this->ref);
+		} else {
 			throw _ModuleConst<Module>::Error;
 		}
 	}
@@ -229,6 +234,9 @@ class Module {
 		}
 
 		static inline PyObject* Create() {
+			// this assert is happen when, using same names on derived module class name
+			assert(Self::Definition()->m_base.m_index == 0);
+
 			PyObject* module = PyModule_Create(const_cast<PyModuleDef*>(Self::Definition()));
 			if (module == NULL) {
 				return NULL;
@@ -247,7 +255,7 @@ class Module {
 			return module;
 		}
 
-		static inline const PyModuleDef* Definition() {
+		static const PyModuleDef* Definition() {
 			static const PyModuleDef def = {
 				PyModuleDef_HEAD_INIT,
 				Self::__name__,

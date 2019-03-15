@@ -2,15 +2,15 @@
 #include <yapic/module.hpp>
 #include <yapic/string-builder.hpp>
 
-class Module;
+class SBModule;
 
-using ModuleVar = Yapic::ModuleVar<Module>;
-using ModuleExc = Yapic::ModuleExc<Module>;
+using ModuleVar = Yapic::ModuleVar<SBModule>;
+using ModuleExc = Yapic::ModuleExc<SBModule>;
 using AsciiBuilder = Yapic::AsciiBuilder<1>;
 using UnicodeBuilder = Yapic::UnicodeBuilder<1>;
 using Utf8BytesBuilder = Yapic::Utf8BytesBuilder;
 
-class Module : public Yapic::Module<Module> {
+class SBModule : public Yapic::Module<SBModule> {
 public:
 	static constexpr const char* __name__ = "yapic.core.test._string_builder";
 
@@ -154,5 +154,5 @@ public:
 
 
 PyMODINIT_FUNC PyInit__string_builder(void) {
-	return Module::Create();
+	return SBModule::Create();
 }

@@ -8,7 +8,10 @@ from setuptools.command.test import test as TestCommand
 from setuptools.command.build_ext import build_ext
 from setuptools.command.egg_info import egg_info
 
-# min version: 3.5
+subcommand_args = []
+if "--" in sys.argv:
+    subcommand_args = sys.argv[sys.argv.index("--") + 1:]
+    del sys.argv[sys.argv.index("--"):]
 
 
 class PyTest(TestCommand):
@@ -66,9 +69,8 @@ class PyTest(TestCommand):
         self.run_tests()
 
     def run_tests(self):
-        import shlex
         import pytest
-        errno = pytest.main(shlex.split(self.pytest_args))
+        errno = pytest.main(subcommand_args)
         sys.exit(errno)
 
     def _init_exts(self):
@@ -102,8 +104,14 @@ class PyTest(TestCommand):
                 # extra_compile_args.append("/MD")
         elif sys.platform == "linux":
             os.environ["CC"] = "gcc"
-            # extra_compile_args.append("-std=c++17")
             extra_compile_args.append("-std=c++17")
+            extra_compile_args.append("-Wno-unknown-pragmas")
+
+            if sys.executable.endswith("-dbg"):
+                define_macros["_DEBUG"] = 1
+                undef_macros.append("NDEBUG")
+            else:
+                pass
 
         depends = glob("src/yapic/core/include/**/*.hpp")
         for m in self.ext_modules:

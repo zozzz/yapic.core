@@ -82,13 +82,13 @@ class PyPtr: public _PyPtr<O> {
 public:
 	using _PyPtr<O>::_PyPtr;
 
-	inline operator O* () const { return (O*) _var; }
-	inline operator PyObject* () const { return (PyObject*) _var; }
+	inline operator O* () const { return (O*) this->_var; }
+	inline operator PyObject* () const { return (PyObject*) this->_var; }
 
 	inline _PyPtr<O>& operator= (const PyObject* other) {
 		// Py_XINCREF(other);
-		Py_XDECREF(_var);
-		_var = (O*) other;
+		Py_XDECREF(this->_var);
+		this->_var = (O*) other;
 		return *this;
 	}
 };
@@ -98,7 +98,7 @@ template<>
 class PyPtr<PyObject>: public _PyPtr<PyObject> {
 public:
 	using _PyPtr<PyObject>::_PyPtr;
-	inline operator PyObject* () const { return (PyObject*) _var; }
+	inline operator PyObject* () const { return (PyObject*) this->_var; }
 };
 
 

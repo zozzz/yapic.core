@@ -2,10 +2,10 @@
 #include <yapic/module.hpp>
 #include <yapic/pyptr.hpp>
 
-class Module;
+class TypesModule;
 
-using ModuleVar = Yapic::ModuleVar<Module>;
-using ModuleExc = Yapic::ModuleExc<Module>;
+using ModuleVar = Yapic::ModuleVar<TypesModule>;
+using ModuleExc = Yapic::ModuleExc<TypesModule>;
 
 
 class A: public Yapic::Type<A, Yapic::Object> {
@@ -144,11 +144,11 @@ public:
 };
 
 
-class Module : public Yapic::Module<Module> {
+class TypesModule : public Yapic::Module<TypesModule> {
 public:
 	static constexpr const char* __name__ = "yapic.core.test._types";
 
-	static inline int __init__(PyObject* module, Module* state) {
+	static inline int __init__(PyObject* module, TypesModule* state) {
 		if (!A::Register(module) ||
 			!B::Register(module) ||
 			!S::Register(module) ||
@@ -163,5 +163,5 @@ public:
 
 
 PyMODINIT_FUNC PyInit__types(void) {
-	return Module::Create();
+	return TypesModule::Create();
 }

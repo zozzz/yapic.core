@@ -30,7 +30,26 @@ namespace Yapic {
         public:
             friend Typing;
 
-            static const PyTypeObject Type;
+            inline static PyTypeObject* NewType() {
+                static PyType_Slot slots[] = {
+                    {Py_tp_dealloc, reinterpret_cast<void*>(__dealloc__)},
+                    {Py_tp_repr, reinterpret_cast<void*>(__repr__)},
+                    {Py_tp_call, reinterpret_cast<void*>(__call__)},
+                    {0, 0}
+                };
+
+                static PyType_Spec spec = {
+                    "yapic.core.ForwardDecl",
+                    sizeof(ForwardDecl),
+                    0,
+                    0,
+                    slots
+                };
+
+                return (PyTypeObject*)PyType_FromSpec(&spec);
+            }
+
+            // static const PyTypeObject Type;
 
             inline static bool IsForwardTuple(PyObject* o) {
                 assert(o != NULL);
@@ -155,7 +174,7 @@ namespace Yapic {
     class Typing {
         public:
             Typing() {
-                memset(this, 0, sizeof(this));
+                memset(this, 0, sizeof(Typing));
             }
 
             ~Typing() {
@@ -180,7 +199,6 @@ namespace Yapic {
                 Py_CLEAR(__init__);
                 Py_CLEAR(__call__);
                 Py_CLEAR(copy_with);
-                Py_DECREF(const_cast<PyTypeObject*>(&ForwardDecl::Type));
             }
 
             bool Init(PyObject* typingModule) {
@@ -207,13 +225,20 @@ namespace Yapic {
                 Yapic_Typing_StrCache(__call__, "__call__");
                 Yapic_Typing_StrCache(copy_with, "copy_with");
 
-                if ((ForwardDecl::Type.tp_flags & Py_TPFLAGS_READY) != Py_TPFLAGS_READY) {
-                    if (PyType_Ready(const_cast<PyTypeObject*>(&ForwardDecl::Type)) < 0) {
-                        return false;
-                    }
+                ForwardDeclType = ForwardDecl::NewType();
+                if (ForwardDeclType == NULL) {
+                    return false;
                 }
-                Py_INCREF(const_cast<PyTypeObject*>(&ForwardDecl::Type));
-                ForwardDeclType = const_cast<PyTypeObject*>(&ForwardDecl::Type);
+
+                // PyType_Spec
+
+                // printf("const_cast<PyTypeObject*>(&ForwardDecl::Type) = %p\n", const_cast<PyTypeObject*>(&ForwardDecl::Type));
+                // YapicTyping_DUMP(const_cast<PyTypeObject*>(&ForwardDecl::Type));
+                // if (PyType_Ready(const_cast<PyTypeObject*>(&ForwardDecl::Type)) < 0) {
+                //     return false;
+                // }
+                // Py_INCREF(const_cast<PyTypeObject*>(&ForwardDecl::Type));
+                // ForwardDeclType = const_cast<PyTypeObject*>(&ForwardDecl::Type);
 
                 PyObject* wrapper = PyObject_GetAttr(reinterpret_cast<PyObject*>(&PyUnicode_Type), __init__);
                 if (wrapper == NULL) {
@@ -716,7 +741,6 @@ namespace Yapic {
             }
 
             void ReplaceMro(PyObject *mro, PyObject *resolved, PyObject* orig, PyObject* entry) {
-                Py_ssize_t idx = 0;
                 Py_ssize_t l = PyTuple_GET_SIZE(mro);
 
                 for (Py_ssize_t i = 0; i < l; ++i) {
@@ -1112,46 +1136,46 @@ namespace Yapic {
     };
 
 
-    const PyTypeObject ForwardDecl::Type = {
-        PyVarObject_HEAD_INIT(NULL, 0)
-        /* tp_name */ 			"yapic.core.ForwardDecl",
-        /* tp_basicsize */ 		sizeof(ForwardDecl),
-        /* tp_itemsize */ 		0,
-        /* tp_dealloc */ 		(destructor) ForwardDecl::__dealloc__,
-        /* tp_print */ 			0,
-        /* tp_getattr */ 		0,
-        /* tp_setattr */ 		0,
-        /* tp_as_async */ 		0,
-        /* tp_repr */ 			(reprfunc) ForwardDecl::__repr__,
-        /* tp_as_number */ 		0,
-        /* tp_as_sequence */ 	0,
-        /* tp_as_mapping */ 	0,
-        /* tp_hash  */ 			0,
-        /* tp_call */ 			(ternaryfunc) ForwardDecl::__call__,
-        /* tp_str */ 			0,
-        /* tp_getattro */ 		0,
-        /* tp_setattro */ 		0,
-        /* tp_as_buffer */ 		0,
-        /* tp_flags */ 			0,
-        /* tp_doc */ 			0,
-        /* tp_traverse */ 		0,
-        /* tp_clear */ 			0,
-        /* tp_richcompare */ 	0,
-        /* tp_weaklistoffset */ 0,
-        /* tp_iter */ 			0,
-        /* tp_iternext */ 		0,
-        /* tp_methods */ 		0,
-        /* tp_members */ 		0,
-        /* tp_getset */ 		0,
-        /* tp_base */ 			0,
-        /* tp_dict */ 			0,
-        /* tp_descr_get */ 		0,
-        /* tp_descr_set */ 		0,
-        /* tp_dictoffset */ 	0,
-        /* tp_init */ 			0,
-        /* tp_alloc */ 			0,
-        /* tp_new */ 			PyType_GenericNew
-    };
+    // const PyTypeObject ForwardDecl::Type = {
+    //     PyVarObject_HEAD_INIT(NULL, 0)
+    //     /* tp_name */ 			"yapic.core.ForwardDecl",
+    //     /* tp_basicsize */ 		sizeof(ForwardDecl),
+    //     /* tp_itemsize */ 		0,
+    //     /* tp_dealloc */ 		(destructor) ForwardDecl::__dealloc__,
+    //     /* tp_print */ 			0,
+    //     /* tp_getattr */ 		0,
+    //     /* tp_setattr */ 		0,
+    //     /* tp_as_async */ 		0,
+    //     /* tp_repr */ 			(reprfunc) ForwardDecl::__repr__,
+    //     /* tp_as_number */ 		0,
+    //     /* tp_as_sequence */ 	0,
+    //     /* tp_as_mapping */ 	0,
+    //     /* tp_hash  */ 			0,
+    //     /* tp_call */ 			(ternaryfunc) ForwardDecl::__call__,
+    //     /* tp_str */ 			0,
+    //     /* tp_getattro */ 		0,
+    //     /* tp_setattro */ 		0,
+    //     /* tp_as_buffer */ 		0,
+    //     /* tp_flags */ 			0,
+    //     /* tp_doc */ 			0,
+    //     /* tp_traverse */ 		0,
+    //     /* tp_clear */ 			0,
+    //     /* tp_richcompare */ 	0,
+    //     /* tp_weaklistoffset */ 0,
+    //     /* tp_iter */ 			0,
+    //     /* tp_iternext */ 		0,
+    //     /* tp_methods */ 		0,
+    //     /* tp_members */ 		0,
+    //     /* tp_getset */ 		0,
+    //     /* tp_base */ 			0,
+    //     /* tp_dict */ 			0,
+    //     /* tp_descr_get */ 		0,
+    //     /* tp_descr_set */ 		0,
+    //     /* tp_dictoffset */ 	0,
+    //     /* tp_init */ 			0,
+    //     /* tp_alloc */ 			0,
+    //     /* tp_new */ 			PyType_GenericNew
+    // };
 
 
 }; /* end namespace Yapic */

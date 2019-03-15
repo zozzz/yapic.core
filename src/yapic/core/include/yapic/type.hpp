@@ -58,9 +58,9 @@ class ClassBaseName {
 
 		void Reduce() {
 			size_t len = strlen(_name);
-			size_t nameLen = 0;
+			int nameLen = 0;
 
-			for (size_t i = len ; i>= 0 ; --i) {
+			for (int i = len - 1 ; i>= 0 ; --i) {
 				if (_name[i] == ':' || _name[i] == ' ') {
 					--nameLen;
 					break;
@@ -68,6 +68,8 @@ class ClassBaseName {
 					++nameLen;
 				}
 			}
+
+			assert(nameLen >= 0);
 
 			memmove(_name, _name + (len - nameLen), nameLen * sizeof(char));
 			_name = (char*) PyMem_Realloc(_name, (nameLen + 1) * sizeof(char));
@@ -94,16 +96,67 @@ class ClassBaseName {
 
 	template<typename T>
 	void ClassBaseName<T>::Determine() {
-		int status;
-		const char* name = typeid(T).name();
-		size_t len = strlen(name);
-		_name = (char*) PyMem_Malloc((len + 1) * sizeof(char));
-		abi::__cxa_demangle(name, _name, len + 1, &status);
-		if (status != 0) {
-			PyMem_Free(_name);
-			_name = NULL;
+		// int status;
+		// const char* name = typeid(T).name();
+		// size_t len = strlen(name);
+		// _name = (char*) PyMem_Malloc((len + 1) * sizeof(char));
+		// abi::__cxa_demangle(name, _name, len + 1, &status);
+		// if (status != 0) {
+		// 	PyMem_Free(_name);
+		// 	_name = NULL;
+		// }
+
+		/*
+		size_t status;
+		size_t len = 100;
+		char* buffer = PyMem_MALLOC((len + 1) * sizeof(char));
+		if (buffer != NULL) {
+			char* realname = abi::__cxa_demangle(typeid(T).name(), buffer, &len, &status);
+			if (status == 0) {
+
+			}
 		}
+		*/
+
+		// _name = "Bakter";
+
+		size_t len;
+		int status;
+		char* realname = abi::__cxa_demangle(typeid(T).name(), NULL, NULL, &status);
+		if (status == 0) {
+			len = strlen(realname);
+			_name = (char*) PyMem_MALLOC((len + 1) * sizeof(char));
+			if (_name != NULL) {
+				memcpy(_name, realname, sizeof(char) * len);
+				_name[len] = '\0';
+			}
+		} else {
+			_name = NULL;
+			assert(0);
+		}
+
+		free(realname);
 	}
+
+	/*
+	template<typename T>
+		void ClassBaseName<T>::Determine() {
+		int status;
+		char* name = abi::__cxa_demangle(typeid(T).name(), NULL, NULL, &status);
+		if (status == 0) {
+			size_t len = strlen(name);
+			_name = (char*) PyMem_MALLOC((len + 1) * sizeof(char));
+			if (_name != NULL) {
+				memcpy(_name, name, sizeof(char) * len);
+				_name[len] = '\0';
+			}
+		} else {
+			_name = NULL;
+			assert(0);
+		}
+		free(name);
+	}
+	*/
 
 #endif
 
@@ -338,7 +391,7 @@ namespace Yapic {
 					std::string typeName(moduleName);
 					typeName += '.';
 					typeName += Self::Name();
-					char* newName = new char[typeName.size() + 1];
+					char* newName = (char*)PyMem_MALLOC((typeName.size() + 1) * sizeof(char));
 					memcpy(newName, typeName.c_str(), sizeof(char) * typeName.size());
 					newName[typeName.size()] = '\0';
 					type->tp_name = newName;
@@ -370,7 +423,7 @@ namespace Yapic {
 			}
 
 			static inline unsigned long Flags() {
-				return Py_TPFLAGS_DEFAULT;
+				return reinterpret_cast<unsigned long>(Py_TPFLAGS_DEFAULT);
 			}
 
 			static inline const PyTypeObject* _BaseType() {
@@ -409,7 +462,7 @@ namespace Yapic {
 					/* tp_traverse */ 		Yapic_GetTypeMethod(Self, __traverse__),
 					/* tp_clear */ 			Yapic_GetTypeMethod(Self, __clear__),
 					/* tp_richcompare */ 	Yapic_GetTypeMethod(Self, __cmp__),
-					/* tp_weaklistoffset */ NULL,
+					/* tp_weaklistoffset */ 0,
 					/* tp_iter */ 			Yapic_GetTypeMethod(Self, __iter__),
 					/* tp_iternext */ 		Yapic_GetTypeMethod(Self, __next__),
 					/* tp_methods */ 		const_cast<PyMethodDef*>(Self::__methods__()),
@@ -419,7 +472,7 @@ namespace Yapic {
 					/* tp_dict */ 			NULL,
 					/* tp_descr_get */ 		Yapic_GetTypeMethod(Self, __get__),
 					/* tp_descr_set */ 		Yapic_GetTypeMethod(Self, __set__),
-					/* tp_dictoffset */ 	NULL,
+					/* tp_dictoffset */ 	0,
 					/* tp_init */ 			Yapic_GetTypeMethod(Self, __init__),
 					/* tp_alloc */ 			Yapic_GetTypeMethod(Self, __alloc__),
 					/* tp_new */ 			Yapic_GetTypeMethod(Self, __new__)
@@ -509,7 +562,7 @@ namespace Yapic {
 					assert(0);
 					return false;
 				} else {
-					return Self::Register(PyObject* module);
+					return Self::Register(module);
 				}
 			}
 

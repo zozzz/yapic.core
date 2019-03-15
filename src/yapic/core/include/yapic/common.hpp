@@ -30,7 +30,5 @@
 		return members; \
 	}
 
-// #define Yapic_String(__name, __value) \
-// 	static constexpr const char* __name = __value;
 
 #endif /* YB9FEBC2_F133_C8FE_1481_9EAC0401592D */

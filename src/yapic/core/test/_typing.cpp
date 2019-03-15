@@ -2,19 +2,17 @@
 #include <yapic/module.hpp>
 #include <yapic/typing.hpp>
 
-class Module;
 
-
-class Module : public Yapic::Module<Module> {
+class TypingModule : public Yapic::Module<TypingModule> {
 public:
-    using ModuleRef = Yapic::ModuleRef<Module>;
+    using ModuleRef = Yapic::ModuleRef<TypingModule>;
 
 	static constexpr const char* __name__ = "yapic.core.test._typing";
 
     ModuleRef typing;
     Yapic::Typing Typing;
 
-	static inline int __init__(PyObject* module, Module* state) {
+	static inline int __init__(PyObject* module, TypingModule* state) {
         state->typing.Import("typing");
 
         if (!state->Typing.Init(state->typing)) {
@@ -108,5 +106,5 @@ public:
 
 
 PyMODINIT_FUNC PyInit__typing(void) {
-	return Module::Create();
+	return TypingModule::Create();
 }
