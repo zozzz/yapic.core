@@ -46,7 +46,7 @@ def test_types_number_proto():
     assert np * 1 == 3
     assert np % 1 == 4
     assert divmod(np, 1) == 5
-    assert np ** 1 == 6
+    assert np**1 == 6
     assert -np == 7
     assert +np == 8
     assert abs(np) == 9
@@ -80,6 +80,7 @@ def test_types_number_proto():
 
 def test_types_no_subclass():
     with pytest.raises(TypeError) as exc:
+
         class Sub(_types.A):
             pass
 
@@ -109,5 +110,3 @@ def test_types_freelist():
     for i in range(0, 20):
         t = _types.FR()
         assert isinstance(t, _types.FR)
-
-

@@ -62,7 +62,6 @@ class ClassBaseName {
 
 			for (int i = len - 1 ; i>= 0 ; --i) {
 				if (_name[i] == ':' || _name[i] == ' ') {
-					--nameLen;
 					break;
 				} else {
 					++nameLen;
@@ -423,7 +422,7 @@ namespace Yapic {
 			}
 
 			static inline unsigned long Flags() {
-				return reinterpret_cast<unsigned long>(Py_TPFLAGS_DEFAULT);
+				return Py_TPFLAGS_DEFAULT;
 			}
 
 			static inline const PyTypeObject* _BaseType() {

@@ -4,8 +4,6 @@ from yapic.core.test import _string_builder
 
 @pytest.mark.parametrize("value", ["Hello World", "Árvíz", "VeryLong" * 100])
 def test_ascii(value):
-    print(_string_builder)
-    print(dir(_string_builder))
     assert _string_builder.ascii_builder(value) == f"@Y@{value}@X@"
 
 
