@@ -46,28 +46,28 @@ public:
 	inline ModuleVar<Module>& Value(Py_ssize_t val) { return Value(PyLong_FromSsize_t(val)); }
 
 	inline ModuleVar<Module>& Value(PyObject* val) {
-		assert(ref == NULL);
+		assert(this->ref == NULL);
 		if (val == NULL) {
 			if (!PyErr_Occurred()) {
 				PyErr_BadInternalCall();
 			}
-			throw _ModuleConst::Error;
+			throw _ModuleConst<Module>::Error;
 		} else {
-			ref = val;
-			_register();
+			this->ref = val;
+			this->_register();
 		}
 		return *this;
 	}
 
-	inline PyObject* Value() const { return ref; }
+	inline PyObject* Value() const { return this->ref; }
 
 	inline ModuleVar<Module>& Export(const char* name) {
-		assert(ref != NULL);
-		if (ref != NULL) {
-			Py_INCREF(ref);
-			if (PyModule_AddObject(Module::Instance(), name, (PyObject*) ref) == -1) {
-				Py_DECREF(ref);
-				throw _ModuleConst::Error;
+		assert(this->ref != NULL);
+		if (this->ref != NULL) {
+			Py_INCREF(this->ref);
+			if (PyModule_AddObject(Module::Instance(), name, (PyObject*) this->ref) == -1) {
+				Py_DECREF(this->ref);
+				throw _ModuleConst<Module>::Error;
 			}
 		}
 	}
@@ -81,15 +81,15 @@ public:
 		std::string excName(Module::__name__);
 		excName += '.';
 		excName += name;
-		ref = PyErr_NewException(excName.c_str(), base, dict);
-		if (ref == NULL) {
-			throw _ModuleConst::Error;
+		this->ref = PyErr_NewException(excName.c_str(), base, dict);
+		if (this->ref == NULL) {
+			throw _ModuleConst<Module>::Error;
 		}
-		_register();
+		this->_register();
 		// Py_INCREF(ref);
-		if (PyModule_AddObject(Module::Instance(), name, (PyObject*) ref) == -1) {
+		if (PyModule_AddObject(Module::Instance(), name, (PyObject*) this->ref) == -1) {
 			// Py_DECREF(ref);
-			throw _ModuleConst::Error;
+			throw _ModuleConst<Module>::Error;
 		}
 	}
 
@@ -105,7 +105,7 @@ public:
 	inline PyObject* Raise(const char* message, ...) {
 		va_list vargs;
 		va_start(vargs, message);
-		PyErr_FormatV(ref, message, vargs);
+		PyErr_FormatV(this->ref, message, vargs);
 		va_end(vargs);
 		return NULL;
 	}
@@ -122,10 +122,10 @@ public:
 	// Import("module.name") == from module.name import *
 	//		module.name == ref // only import __all__ if specified
 	inline void Import(const char* moduleName) {
-		assert(ref == NULL);
-		ref = PyImport_ImportModule(moduleName);
-		if (ref == NULL) {
-			throw _ModuleConst::Error;
+		assert(this->ref == NULL);
+		this->ref = PyImport_ImportModule(moduleName);
+		if (this->ref == NULL) {
+			throw _ModuleConst<Module>::Error;
 		}
 	}
 
@@ -136,14 +136,14 @@ public:
 	//		02 == ref.o2
 	template<typename... T>
 	inline void Import(const char* moduleName, T... objNames) {
-		assert(ref == NULL);
+		assert(this->ref == NULL);
 
 		bool res = true;
 		const int size = sizeof...(objNames);
 
 		PyObject* fromList = PyList_New(size + 1);
 		if (fromList == NULL) {
-			throw _ModuleConst::Error;
+			throw _ModuleConst<Module>::Error;
 		}
 
 		int i=0;
@@ -157,32 +157,32 @@ public:
 			++i;
 		}
 
-		ref = PyImport_ImportModuleEx(moduleName, NULL, NULL, fromList);
-		if (ref == NULL) {
+		this->ref = PyImport_ImportModuleEx(moduleName, NULL, NULL, fromList);
+		if (this->ref == NULL) {
 			res = false;
 			goto end;
 		} else {
 			if (size == 1) {
-				PyObject *obj = PyObject_GetAttr(ref, PyList_GET_ITEM(fromList, 0));
+				PyObject *obj = PyObject_GetAttr(this->ref, PyList_GET_ITEM(fromList, 0));
 				if (obj == NULL) {
 					res = false;
 					goto end;
 				}
-				Py_SETREF(ref, obj);
+				Py_SETREF(this->ref, obj);
 			}
-			_register();
+			this->_register();
 		}
 
 	end:
 		Py_XDECREF(fromList);
 		if (!res) {
-			throw _ModuleConst::Error;
+			throw _ModuleConst<Module>::Error;
 		}
 	}
 
 	inline bool CheckExact(const PyTypeObject* type) {
 		assert(type != NULL);
-		return type == reinterpret_cast<const PyTypeObject*>(ref);
+		return type == reinterpret_cast<const PyTypeObject*>(this->ref);
 	}
 
 	inline bool CheckExact(const PyObject* obj) {
@@ -192,12 +192,12 @@ public:
 
 	inline bool Check(const PyObject* obj) {
 		assert(obj != NULL);
-		return PyObject_TypeCheck(const_cast<PyObject*>(obj), reinterpret_cast<PyTypeObject*>(ref));
+		return PyObject_TypeCheck(const_cast<PyObject*>(obj), reinterpret_cast<PyTypeObject*>(this->ref));
 	}
 
 	inline bool IsSubclass(const PyTypeObject* type) {
 		assert(type != NULL);
-		return PyObject_IsSubclass(const_cast<PyObject*>(reinterpret_cast<const PyObject*>(type)), ref);
+		return PyObject_IsSubclass(const_cast<PyObject*>(reinterpret_cast<const PyObject*>(type)), this->ref);
 	}
 };
 
