@@ -54,6 +54,14 @@ public:
         }
     }
 
+    static PyObject* is_forward_decl(PyObject* module, PyObject* o) {
+        if (State(module)->Typing.IsForwardDecl(o)) {
+            Py_RETURN_TRUE;
+        } else {
+            Py_RETURN_FALSE;
+        }
+    }
+
     static PyObject* resolve_type_vars(PyObject* module, PyObject* o) {
         return State(module)->Typing.ResolveTypeVars(o);
     }
@@ -62,8 +70,25 @@ public:
         return State(module)->Typing.ResolveMro(o);
     }
 
-    static PyObject* class_hints(PyObject* module, PyObject* o) {
-        return State(module)->Typing.ClassHints(o);
+    static PyObject* type_hints(PyObject* module, PyObject* o) {
+        return State(module)->Typing.TypeHints(o);
+    }
+
+    static PyObject* callable_hints(PyObject* module, PyObject* o) {
+        return State(module)->Typing.CallableHints(o);
+    }
+
+    static PyObject* callable_hints_with_type(PyObject* module, PyObject* args) {
+        PyObject* callable;
+        PyObject* type;
+        if (PyArg_UnpackTuple(args, "OO", 2, 2, &callable, &type)) {
+            return State(module)->Typing.CallableHints(callable, type);
+        }
+        return NULL;
+    }
+
+    static PyObject* unpack_forward_decl(PyObject* module, PyObject* o) {
+        return State(module)->Typing.UnpackForwardDecl(o);
     }
 
 	Yapic_METHODS_BEGIN
@@ -71,9 +96,13 @@ public:
 		Yapic_Method(is_generic, METH_O, NULL)
 		Yapic_Method(is_generic_type, METH_O, NULL)
 		Yapic_Method(is_forward_ref, METH_O, NULL)
+        Yapic_Method(is_forward_decl, METH_O, NULL)
 		Yapic_Method(resolve_type_vars, METH_O, NULL)
 		Yapic_Method(resolve_mro, METH_O, NULL)
-		Yapic_Method(class_hints, METH_O, NULL)
+		Yapic_Method(type_hints, METH_O, NULL)
+		Yapic_Method(callable_hints, METH_O, NULL)
+		Yapic_Method(callable_hints_with_type, METH_VARARGS, NULL)
+        Yapic_Method(unpack_forward_decl, METH_O, NULL)
 	Yapic_METHODS_END
 };
 
