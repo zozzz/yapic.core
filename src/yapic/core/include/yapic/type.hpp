@@ -93,12 +93,12 @@ class ClassBaseName {
 #	include <execinfo.h>
 
 	template<typename T>
-	void ClassBaseName::Determine() {
+	void ClassBaseName<T>::Determine() {
 		int status;
 		const char* name = typeid(T).name();
 		size_t len = strlen(name);
 		_name = (char*) PyMem_Malloc((len + 1) * sizeof(char));
-		abi::__cxa_demangle(c, _name, len + 1, &status);
+		abi::__cxa_demangle(name, _name, len + 1, &status);
 		if (status != 0) {
 			PyMem_Free(_name);
 			_name = NULL;
@@ -500,7 +500,9 @@ namespace Yapic {
 	template<typename _traits>
 	class BuiltinObject : public Type<BuiltinObject<_traits>, AbstractObject> {
 		public:
+			// typedef Type<BuiltinObject<_traits>, AbstractObject> Base;
 			using Builtin = BuiltinObject<_traits>;
+			using Self = typename Type<BuiltinObject<_traits>, AbstractObject>::Self;
 
 			static inline bool Register(PyObject* module) {
 				if (std::is_same<Self, Builtin>::value) {

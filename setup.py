@@ -76,11 +76,11 @@ class PyTest(TestCommand):
             self.distribution.ext_modules = []
         self.distribution.packages += ["yapic.core.test"]
         define_macros = {}
+        undef_macros = []
+        extra_compile_args = []
 
         if sys.platform == "win32":
             define_macros["UNICODE"] = 1
-            undef_macros = []
-            extra_compile_args = []
             # extra_compile_args = ["/FC", Path(__file__).absolute().path.joinpath("src", "yapic", "")]
             # extra_compile_args.append("/P")  # Preprocessor outpout
 
@@ -100,6 +100,10 @@ class PyTest(TestCommand):
                 pass
                 # extra_compile_args.append("/MT")
                 # extra_compile_args.append("/MD")
+        elif sys.platform == "linux":
+            os.environ["CC"] = "gcc"
+            # extra_compile_args.append("-std=c++17")
+            extra_compile_args.append("-std=c++17")
 
         depends = glob("src/yapic/core/include/**/*.hpp")
         for m in self.ext_modules:
