@@ -133,10 +133,10 @@ namespace Yapic {
                 if (Py_TYPE(this) == Py_TYPE(obj)) {
                     return reinterpret_cast<ForwardDecl*>(obj)->Resolve();
                 } else {
-                    PyPtr<> args = PyObject_GetAttr(obj, __args__);
+                    PyPtr<PyTupleObject> args = PyObject_GetAttr(obj, __args__);
                     if (args.IsValid()) {
                         Py_ssize_t l = PyTuple_GET_SIZE(args);
-                        PyPtr<> newArgs = PyTuple_New(l);
+                        PyPtr<PyTupleObject> newArgs = PyTuple_New(l);
 
                         for (Py_ssize_t i = 0; i < l; ++i) {
                             PyPtr<> arg = Resolve(PyTuple_GET_ITEM(args, i));
@@ -321,11 +321,11 @@ namespace Yapic {
                 PyPtr<> resolved = PyDict_New();
 
                 if (resolved.IsValid()) {
-                    PyPtr<> args = PyObject_GetAttr(type, __args__);
+                    PyPtr<PyTupleObject> args = PyObject_GetAttr(type, __args__);
                     if (args.IsValid()) {
                         PyPtr<> origin = PyObject_GetAttr(type, __origin__);
                         if (origin.IsValid()) {
-                            PyPtr<> params = PyObject_GetAttr(origin, __parameters__);
+                            PyPtr<PyTupleObject> params = PyObject_GetAttr(origin, __parameters__);
                             if (params.IsValid()) {
                                 assert(PyTuple_CheckExact(params));
                                 assert(PyTuple_CheckExact(args));
@@ -380,10 +380,10 @@ namespace Yapic {
                 PyPtr<> mro(NULL);
 
                 if (IsGenericType(type)) {
-                    PyPtr<> origin = PyObject_GetAttr(type, __origin__);
+                    PyPtr<PyTypeObject> origin = PyObject_GetAttr(type, __origin__);
                     if (origin.IsValid()) {
                         if (PyType_Check(origin)) {
-                            mro = ((PyTypeObject*)origin)->tp_mro;
+                            mro = origin->tp_mro;
                             mro.Incref();
                         } else {
                             PyErr_BadInternalCall();
@@ -424,7 +424,7 @@ namespace Yapic {
 
             // returns (original_class, attributes, init)
             PyObject* TypeHints(PyObject* type, PyObject* vars) {
-                PyPtr<> mro = ResolveMro(type, vars);
+                PyPtr<PyTupleObject> mro = ResolveMro(type, vars);
 
                 if (mro.IsValid()) {
                     PyPtr<> attrs;
@@ -529,7 +529,7 @@ namespace Yapic {
                         if (oclass) {
                             PyPtr<> nvars = ResolveTypeVars(oclass, vars);
                             if (nvars) {
-                                return ResolveArguments(func, 1, oclass, nvars);
+                                return reinterpret_cast<PyObject*>(ResolveArguments(func, 1, oclass, nvars));
                             } else {
                                 return NULL;
                             }
@@ -538,7 +538,7 @@ namespace Yapic {
                         }
                     }
 
-                    return ResolveArguments(func, bound == NULL ? 0 : 1, type, vars);
+                    return reinterpret_cast<PyObject*>(ResolveArguments(func, bound == NULL ? 0 : 1, type, vars));
                 } else {
                     return NULL;
                 }
@@ -557,12 +557,12 @@ namespace Yapic {
                 ForwardDecl* fwd = (ForwardDecl*)o;
                 if (fwd->IsGeneric()) {
                     PyObject* decl = fwd->decl;
-                    PyPtr<> args = PyObject_GetAttr(decl, __args__);
+                    PyPtr<PyTupleObject> args = PyObject_GetAttr(decl, __args__);
                     if (args) {
                         PyPtr<> origin = PyObject_GetAttr(decl, __origin__);
                         if (origin) {
                             Py_ssize_t l = PyTuple_GET_SIZE(args);
-                            PyPtr<> result = PyTuple_New(l);
+                            PyPtr<PyTupleObject> result = PyTuple_New(l);
 
                             for (Py_ssize_t i = 0; i < l; ++i) {
                                 PyObject* arg = PyTuple_GET_ITEM(args, i);
@@ -611,7 +611,7 @@ namespace Yapic {
             }
 
             PyObject* NewForwardDecl(PyCodeObject* code, PyObject* expr, PyDictObject* globals, PyDictObject* locals) {
-                PyPtr<> result = PyTuple_New(3);
+                PyPtr<PyTupleObject> result = PyTuple_New(3);
                 if (result.IsValid()) {
                     Py_INCREF(code);
                     Py_INCREF(globals);
@@ -666,7 +666,7 @@ namespace Yapic {
             }
 
             PyObject* NewForwardDecl(PyUnicodeObject* str, PyObject* type, PyObject* locals) {
-                PyPtr<> moduleName = PyObject_GetAttr(type, __module__);
+                PyPtr<PyUnicodeObject> moduleName = PyObject_GetAttr(type, __module__);
                 if (moduleName.IsValid()) {
                     return NewForwardDecl(str, (PyUnicodeObject*)moduleName, locals);
                 } else {
@@ -689,7 +689,7 @@ namespace Yapic {
             }
 
             PyObject* NewForwardDecl(PyUnicodeObject* str, PyDictObject* globals, PyDictObject* locals) {
-                PyPtr<> ascii = PyUnicode_AsASCIIString((PyObject*)str);
+                PyPtr<PyBytesObject> ascii = PyUnicode_AsASCIIString((PyObject*)str);
                 if (ascii.IsValid()) {
                     return NewForwardDecl(PyBytes_AS_STRING(ascii), (PyObject*)str, globals, locals);
                 }
@@ -702,7 +702,7 @@ namespace Yapic {
             bool ResolveMro(PyObject* type, PyObject *mro, PyObject *resolved, PyObject* vars) {
                 PyPtr<> origin = PyObject_GetAttr(type, __origin__);
                 if (origin.IsValid()) {
-                    PyPtr<> bases = PyObject_GetAttr(origin, __orig_bases__);
+                    PyPtr<PyTupleObject> bases = PyObject_GetAttr(origin, __orig_bases__);
                     if (bases.IsValid()) {
                         Py_ssize_t l = PyTuple_GET_SIZE(bases);
 
@@ -864,11 +864,11 @@ namespace Yapic {
                         return NewForwardDecl(value, type, locals);
                     }
                 } else if (IsGenericType(value)) {
-                    PyPtr<> args = PyObject_GetAttr(value, __args__);
+                    PyPtr<PyTupleObject> args = PyObject_GetAttr(value, __args__);
                     if (args.IsValid()) {
                         Py_ssize_t l = PyTuple_GET_SIZE(args);
                         if (l > 0) {
-                            PyPtr<> newArgs = PyTuple_New(l);
+                            PyPtr<PyTupleObject> newArgs = PyTuple_New(l);
                             if (newArgs.IsValid()) {
                                 for (Py_ssize_t i = 0; i < l; ++i) {
                                     PyObject* oldA = PyTuple_GET_ITEM(args, i);
@@ -955,7 +955,7 @@ namespace Yapic {
                 return false;
             }
 
-            PyObject* ResolveArguments(PyFunctionObject* func, int offset, PyObject* type, PyObject* vars) {
+            PyTupleObject* ResolveArguments(PyFunctionObject* func, int offset, PyObject* type, PyObject* vars) {
                 PyCodeObject* code = (PyCodeObject*) PyFunction_GET_CODE(func);
                 assert(code != NULL && PyCode_Check(code));
 
@@ -967,7 +967,7 @@ namespace Yapic {
                     return NULL;
                 }
 
-                PyPtr<> result(PyTuple_New(2));
+                PyPtr<PyTupleObject> result(PyTuple_New(2));
                 if (result.IsNull()) {
                     return NULL;
                 }
@@ -977,8 +977,8 @@ namespace Yapic {
                     assert(PyDict_CheckExact(annots));
                 }
 
-                PyPtr<> args;
-                PyPtr<> keywords;
+                PyPtr<PyTupleObject> args;
+                PyPtr<PyTupleObject> keywords;
                 PyObject* defaults;
                 PyObject* argName;
                 PyObject* argType;
@@ -1088,8 +1088,8 @@ namespace Yapic {
                     }
                 }
 
-                PyTuple_SET_ITEM(result, 0, args.Steal());
-                PyTuple_SET_ITEM(result, 1, keywords.Steal());
+                PyTuple_SET_ITEM(result, 0, reinterpret_cast<PyObject*>(args.Steal()));
+                PyTuple_SET_ITEM(result, 1, reinterpret_cast<PyObject*>(keywords.Steal()));
                 return result.Steal();
             }
 

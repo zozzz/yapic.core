@@ -18,8 +18,9 @@ template<typename O>
 class _PyPtr {
 
 	public:
-		inline _PyPtr(): _var(Py_None) { Py_INCREF(Py_None); }
+		inline _PyPtr(): _var(reinterpret_cast<O*>(Py_None)) { Py_INCREF(Py_None); }
 		inline _PyPtr(O* var): _var(var) {  }
+		inline _PyPtr(_PyPtr<O>&& other): _var(other._var) {  }
 		inline ~_PyPtr() { Py_XDECREF(_var); }
 		inline O& operator* () const { return *_var; }
 		inline O* operator-> () const { return _var; }
@@ -48,22 +49,22 @@ class _PyPtr {
 
 		inline _PyPtr<O>& operator= (const O* other) = delete;
 
-		// deprecated
-		inline operator PyTupleObject* () const { return (PyTupleObject*) _var; }
-		inline operator PyDictObject* () const { return (PyDictObject*) _var; }
 		inline operator PyVarObject* () const { return (PyVarObject*) _var; }
-		inline operator PyLongObject* () const { return (PyLongObject*) _var; }
-		inline operator PyFloatObject* () const { return (PyFloatObject*) _var; }
-		inline operator PyByteArrayObject* () const { return (PyByteArrayObject*) _var; }
-		inline operator PyBytesObject* () const { return (PyBytesObject*) _var; }
-		inline operator PyUnicodeObject* () const { return (PyUnicodeObject*) _var; }
-		inline operator PyTypeObject* () const { return (PyTypeObject*) _var; }
-		inline operator PyCodeObject* () const { return (PyCodeObject*) _var; }
-		inline operator PyComplexObject* () const { return (PyComplexObject*) _var; }
+		// deprecated
+		// inline operator PyTupleObject* () const { return (PyTupleObject*) _var; }
+		// inline operator PyDictObject* () const { return (PyDictObject*) _var; }
+		// inline operator PyLongObject* () const { return (PyLongObject*) _var; }
+		// inline operator PyFloatObject* () const { return (PyFloatObject*) _var; }
+		// inline operator PyByteArrayObject* () const { return (PyByteArrayObject*) _var; }
+		// inline operator PyBytesObject* () const { return (PyBytesObject*) _var; }
+		// inline operator PyUnicodeObject* () const { return (PyUnicodeObject*) _var; }
+		// inline operator PyTypeObject* () const { return (PyTypeObject*) _var; }
+		// inline operator PyCodeObject* () const { return (PyCodeObject*) _var; }
+		// inline operator PyComplexObject* () const { return (PyComplexObject*) _var; }
 
 		template<typename AS>
-		inline AS* As() const { return (AS*) _var; }
-		inline PyObject* AsObject() const { return (PyObject*) _var; };
+		inline AS* As() const { return reinterpret_cast<AS*>(_var); }
+		inline PyObject* AsObject() const { return reinterpret_cast<PyObject*>(_var); };
 
 		inline bool IsNull() const { return _var == NULL; }
 		inline bool IsValid() const { return _var != NULL; }
@@ -81,6 +82,9 @@ template<typename O = PyObject>
 class PyPtr: public _PyPtr<O> {
 public:
 	using _PyPtr<O>::_PyPtr;
+	inline PyPtr() { this->_var = reinterpret_cast<O*>(Py_None); Py_INCREF(Py_None); }
+	inline PyPtr(PyObject* var) { this->_var = reinterpret_cast<O*>(var); }
+
 
 	inline operator O* () const { return (O*) this->_var; }
 	inline operator PyObject* () const { return (PyObject*) this->_var; }

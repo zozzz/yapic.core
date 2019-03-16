@@ -28,6 +28,7 @@ class PyTest(TestCommand):
         "src/yapic/core/test/_bad_import.cpp",
         "src/yapic/core/test/_bad_import2.cpp",
         "src/yapic/core/test/_string_builder.cpp",
+        "src/yapic/core/test/_pyptr.cpp",
         "src/yapic/core/test/_types.cpp",
         "src/yapic/core/test/_thread.cpp",
         "src/yapic/core/test/_typing.cpp",
@@ -104,7 +105,8 @@ class PyTest(TestCommand):
                 # extra_compile_args.append("/MD")
         elif sys.platform == "linux":
             os.environ["CC"] = "gcc"
-            extra_compile_args.append("-std=c++17")
+            # extra_compile_args.append("-std=c++17")
+            extra_compile_args.append("-std=c++11")
             extra_compile_args.append("-Wno-unknown-pragmas")
 
             if sys.executable.endswith("-dbg"):
