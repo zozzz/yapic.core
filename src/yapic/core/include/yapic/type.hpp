@@ -91,34 +91,9 @@ class ClassBaseName {
 
 #ifdef __GNUG__
 #	include <cxxabi.h>
-#	include <execinfo.h>
 
 	template<typename T>
 	void ClassBaseName<T>::Determine() {
-		// int status;
-		// const char* name = typeid(T).name();
-		// size_t len = strlen(name);
-		// _name = (char*) PyMem_Malloc((len + 1) * sizeof(char));
-		// abi::__cxa_demangle(name, _name, len + 1, &status);
-		// if (status != 0) {
-		// 	PyMem_Free(_name);
-		// 	_name = NULL;
-		// }
-
-		/*
-		size_t status;
-		size_t len = 100;
-		char* buffer = PyMem_MALLOC((len + 1) * sizeof(char));
-		if (buffer != NULL) {
-			char* realname = abi::__cxa_demangle(typeid(T).name(), buffer, &len, &status);
-			if (status == 0) {
-
-			}
-		}
-		*/
-
-		// _name = "Bakter";
-
 		size_t len;
 		int status;
 		char* realname = abi::__cxa_demangle(typeid(T).name(), NULL, NULL, &status);
@@ -136,26 +111,6 @@ class ClassBaseName {
 
 		free(realname);
 	}
-
-	/*
-	template<typename T>
-		void ClassBaseName<T>::Determine() {
-		int status;
-		char* name = abi::__cxa_demangle(typeid(T).name(), NULL, NULL, &status);
-		if (status == 0) {
-			size_t len = strlen(name);
-			_name = (char*) PyMem_MALLOC((len + 1) * sizeof(char));
-			if (_name != NULL) {
-				memcpy(_name, name, sizeof(char) * len);
-				_name[len] = '\0';
-			}
-		} else {
-			_name = NULL;
-			assert(0);
-		}
-		free(name);
-	}
-	*/
 
 #endif
 
