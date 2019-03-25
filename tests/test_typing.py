@@ -413,3 +413,32 @@ def test_forward_decl():
     assert _typing.is_forward_decl(unpacked[1][1])
     assert unpacked[1][0]() == FwTest
     assert unpacked[1][1]() == A[FwTest]
+
+
+def test_entity_serial():
+    Impl = typing.TypeVar("Impl")
+    PyType = typing.TypeVar("PyType")
+    RawType = typing.TypeVar("RawType")
+
+    class Field(typing.Generic[Impl, PyType, RawType]):
+        __impl__: Impl
+
+        def __init__(self, impl: Impl):
+            pass
+
+    class IntImpl:
+        pass
+
+    Int = Field[IntImpl, int, int]
+
+    class Serial(Int):
+        pass
+
+    (int_cls, int_attr, int_init) = _typing.type_hints(Int)
+    (serial_cls, serial_attr, serial_init) = _typing.type_hints(Serial)
+
+    assert int_cls is Field
+    assert serial_cls is Serial
+
+    assert int_attr == serial_attr
+    assert int_init == serial_init

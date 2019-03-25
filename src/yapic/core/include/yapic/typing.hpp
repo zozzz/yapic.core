@@ -379,26 +379,47 @@ namespace Yapic {
             PyObject* ResolveMro(PyObject* type, PyObject* vars) {
                 PyPtr<> mro(NULL);
 
-                if (IsGenericType(type)) {
-                    PyPtr<PyTypeObject> origin = PyObject_GetAttr(type, __origin__);
-                    if (origin.IsValid()) {
-                        if (PyType_Check(origin)) {
-                            mro = origin->tp_mro;
-                            mro.Incref();
-                        } else {
-                            PyErr_BadInternalCall();
-                            return NULL;
-                        }
+                PyPtr<PyTypeObject> origin = PyObject_GetAttr(type, __origin__);
+                if (origin) {
+                    if (PyType_Check(origin)) {
+                        mro = origin->tp_mro;
+                        mro.Incref();
                     } else {
+                        PyErr_BadInternalCall();
                         return NULL;
                     }
-                } else if (PyType_Check(type)) {
-                    mro = reinterpret_cast<PyTypeObject*>(type)->tp_mro;
-                    mro.Incref();
                 } else {
-                    PyErr_BadArgument();
-                    return NULL;
+                    PyErr_Clear();
+
+                    if (PyType_Check(type)) {
+                        mro = reinterpret_cast<PyTypeObject*>(type)->tp_mro;
+                        mro.Incref();
+                    } else {
+                        PyErr_BadArgument();
+                        return NULL;
+                    }
                 }
+
+                // if (IsGenericType(type)) {
+                //     PyPtr<PyTypeObject> origin = PyObject_GetAttr(type, __origin__);
+                //     if (origin.IsValid()) {
+                //         if (PyType_Check(origin)) {
+                //             mro = origin->tp_mro;
+                //             mro.Incref();
+                //         } else {
+                //             PyErr_BadInternalCall();
+                //             return NULL;
+                //         }
+                //     } else {
+                //         return NULL;
+                //     }
+                // } else if (PyType_Check(type)) {
+                //     mro = reinterpret_cast<PyTypeObject*>(type)->tp_mro;
+                //     mro.Incref();
+                // } else {
+                //     PyErr_BadArgument();
+                //     return NULL;
+                // }
 
                 assert(mro.IsValid());
                 assert(PyTuple_CheckExact(mro));
@@ -439,7 +460,13 @@ namespace Yapic {
 
                         PyObject* currentType = PyTuple_GET_ITEM(mroEntry, 0);
                         PyObject* currentVars = PyTuple_GET_ITEM(mroEntry, 2);
-                        annots = PyObject_GetAttr(currentType, __annotations__);
+                        PyPtr<> clsDict = PyObject_GetAttr(currentType, __dict__);
+                        if (!clsDict) {
+                            PyErr_Clear();
+                            continue;
+                        }
+
+                        annots = PyObject_GetItem(clsDict, __annotations__);
                         if (annots.IsValid()) {
                             if (attrs.IsNone()) {
                                 attrs = PyDict_New();
@@ -455,18 +482,12 @@ namespace Yapic {
                         }
 
                         if (init.IsNone()) {
-                            PyObject* clsDict = PyObject_GetAttr(currentType, __dict__);
-                            if (clsDict != NULL) {
-                                PyPtr<> initFn = PyObject_GetItem(clsDict, __init__);
-                                Py_DECREF(clsDict);
+                            PyPtr<> initFn = PyObject_GetItem(clsDict, __init__);
 
-                                if (initFn.IsValid()) {
-                                    init = CallableHints(initFn, currentType, currentVars);
-                                    if (init.IsNull()) {
-                                        return NULL;
-                                    }
-                                } else {
-                                    PyErr_Clear();
+                            if (initFn.IsValid()) {
+                                init = CallableHints(initFn, currentType, currentVars);
+                                if (init.IsNull()) {
+                                    return NULL;
                                 }
                             } else {
                                 PyErr_Clear();
@@ -700,39 +721,43 @@ namespace Yapic {
              * mro_entry = (original_type, generic_type)
              */
             bool ResolveMro(PyObject* type, PyObject *mro, PyObject *resolved, PyObject* vars) {
+                PyPtr<PyTupleObject> bases;
                 PyPtr<> origin = PyObject_GetAttr(type, __origin__);
-                if (origin.IsValid()) {
-                    PyPtr<PyTupleObject> bases = PyObject_GetAttr(origin, __orig_bases__);
-                    if (bases.IsValid()) {
-                        Py_ssize_t l = PyTuple_GET_SIZE(bases);
 
-                        PyPtr<> selfVars(ResolveTypeVars(type, vars));
+                if (!origin) {
+                    PyErr_Clear();
+                    origin = type;
+                    origin.Incref();
+                }
+                bases = PyObject_GetAttr(origin, __orig_bases__);
 
-                        for (Py_ssize_t i = 0; i < l; ++i) {
-                            PyObject* base = PyTuple_GET_ITEM(bases, i);
-                            if (ResolveMro(base, mro, resolved, selfVars)) {
+                if (bases.IsValid()) {
+                    Py_ssize_t l = PyTuple_GET_SIZE(bases);
 
-                                PyObject* entry = PyTuple_New(3);
-                                if (entry != NULL) {
-                                    Py_INCREF(origin);
-                                    Py_INCREF(type);
-                                    Py_INCREF(selfVars);
+                    PyPtr<> selfVars(ResolveTypeVars(type, vars));
 
-                                    PyTuple_SET_ITEM(entry, 0, origin.AsObject());
-                                    PyTuple_SET_ITEM(entry, 1, type);
-                                    PyTuple_SET_ITEM(entry, 2, selfVars.AsObject());
+                    for (Py_ssize_t i = 0; i < l; ++i) {
+                        PyObject* base = PyTuple_GET_ITEM(bases, i);
+                        if (ResolveMro(base, mro, resolved, selfVars)) {
 
-                                    ReplaceMro(mro, resolved, origin, entry);
-                                    Py_DECREF(entry);
-                                } else {
-                                    return false;
-                                }
+                            PyObject* entry = PyTuple_New(3);
+                            if (entry != NULL) {
+                                Py_INCREF(origin);
+                                Py_INCREF(type);
+                                Py_INCREF(selfVars);
+
+                                PyTuple_SET_ITEM(entry, 0, origin.AsObject());
+                                PyTuple_SET_ITEM(entry, 1, type);
+                                PyTuple_SET_ITEM(entry, 2, selfVars.AsObject());
+
+                                ReplaceMro(mro, resolved, origin, entry);
+                                Py_DECREF(entry);
                             } else {
                                 return false;
                             }
+                        } else {
+                            return false;
                         }
-                    } else {
-                        PyErr_Clear();
                     }
                 } else {
                     PyErr_Clear();
