@@ -316,9 +316,9 @@ namespace Yapic {
 				return Allocator::Alloc(type);
 			}
 
-			static inline void __dealloc__(void* self) {
-				Allocator::Dealloc(self);
-			}
+			// static inline void __dealloc__(void* self) {
+			// 	Allocator::Dealloc(self);
+			// }
 
 			static inline bool Check(void* o) {
 				assert(o != NULL);
@@ -411,7 +411,7 @@ namespace Yapic {
 					/* tp_getattro */ 		Yapic_GetTypeMethod(Self, __getattro__),
 					/* tp_setattro */ 		Yapic_GetTypeMethod(Self, __setattro__),
 					/* tp_as_buffer */ 		NULL,
-					/* tp_flags */ 			Self::Flags(),
+					/* tp_flags */ 			Self::Flags() | (Yapic_HasMethod(Self, __traverse__) ? Py_TPFLAGS_HAVE_GC : 0),
 					/* tp_doc */ 			NULL,
 					/* tp_traverse */ 		Yapic_GetTypeMethod(Self, __traverse__),
 					/* tp_clear */ 			Yapic_GetTypeMethod(Self, __clear__),
@@ -429,11 +429,16 @@ namespace Yapic {
 					/* tp_dictoffset */ 	0,
 					/* tp_init */ 			Yapic_GetTypeMethod(Self, __init__),
 					/* tp_alloc */ 			Yapic_GetTypeMethod(Self, __alloc__),
-					/* tp_new */ 			Yapic_GetTypeMethod(Self, __new__)
+					/* tp_new */ 			Yapic_GetTypeMethod(Self, __new__),
+					/* tp_free */			Yapic_GetTypeMethod(Self, __free__)
 				};
 				return &type;
 			}
 		protected:
+			inline void Dealloc() {
+				Allocator::Dealloc(this);
+			}
+
 			static inline PyMappingMethods* _MappingMethods() {
 				static PyMappingMethods methods = {
 					Yapic_GetTypeMethod(Self, __mp_len__),
@@ -531,19 +536,42 @@ namespace Yapic {
 			typename _traits::PyType ob_base;
 	};
 
-	// struct ListTrait {
-	// 	static constexpr const char* Name = "list";
-	// 	// ...
-	// };
-
-	// typedef BuiltinObject<ListTrait> List;
-
 	struct ObjectTraits {
 		static const PyTypeObject* Type;
 		typedef PyObject PyType;
 	};
 	const PyTypeObject* ObjectTraits::Type = &PyBaseObject_Type;
 	typedef BuiltinObject<ObjectTraits> Object;
+
+
+	template<typename _traits>
+	class BuiltinGcObject : public Type<BuiltinGcObject<_traits>, AbstractObject> {
+		public:
+			using Builtin = BuiltinGcObject<_traits>;
+			using Self = typename Type<BuiltinGcObject<_traits>, AbstractObject>::Self;
+
+			static inline bool Register(PyObject* module) {
+				if (std::is_same<Self, Builtin>::value) {
+					assert(0);
+					return false;
+				} else {
+					return Self::Register(module);
+				}
+			}
+
+			static inline const PyTypeObject* PyType() {
+				if (std::is_same<Self, Builtin>::value) {
+					return _traits::Type;
+				} else {
+					return Self::PyType();
+				}
+			}
+
+		public:
+			typename _traits::PyType ob_base;
+	};
+
+	typedef BuiltinGcObject<ObjectTraits> GcObject;
 
 
 	struct ListTraits {
