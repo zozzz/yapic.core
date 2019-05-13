@@ -485,9 +485,13 @@ namespace Yapic {
                             PyPtr<> initFn = PyObject_GetItem(clsDict, __init__);
 
                             if (initFn.IsValid()) {
-                                init = CallableHints(initFn, currentType, currentVars);
+                                init = CallableHints(initFn, currentType, currentVars, true);
                                 if (init.IsNull()) {
-                                    return NULL;
+                                    if (PyErr_Occurred()) {
+                                        return NULL;
+                                    } else {
+                                        init = Py_None;
+                                    }
                                 }
                             } else {
                                 PyErr_Clear();
@@ -541,10 +545,14 @@ namespace Yapic {
              * )
             */
             inline PyObject* CallableHints(PyObject* callable, PyObject* type, PyObject* vars) {
+                return CallableHints(callable, type, vars, false);
+            }
+
+            inline PyObject* CallableHints(PyObject* callable, PyObject* type, PyObject* vars, bool optional) {
                 PyFunctionObject* func;
                 PyObject* bound = type;
 
-                if (CallableInfo(callable, func, bound)) {
+                if (CallableInfo(callable, optional, func, bound)) {
                     if (!type && bound) {
                         PyPtr<> oclass = PyObject_GetAttr(bound, __orig_class__);
                         if (oclass) {
@@ -936,7 +944,7 @@ namespace Yapic {
                 return value;
             }
 
-            bool CallableInfo(PyObject* callable, PyFunctionObject*& func, PyObject*& bound) {
+            bool CallableInfo(PyObject* callable, bool optional, PyFunctionObject*& func, PyObject*& bound) {
                 if (PyFunction_Check(callable)) {
                     func = (PyFunctionObject*) callable;
 					return true;
@@ -946,7 +954,9 @@ namespace Yapic {
 					bound = PyMethod_GET_SELF(callable);
                     return true;
                 } else if (PyObject_IsInstance(callable, MethodWrapperType)) {
-                    PyErr_Format(PyExc_TypeError, "Cannot get type hints from built / c-extension method: %R", callable);
+                    if (!optional) {
+                        PyErr_Format(PyExc_TypeError, "Cannot get type hints from built / c-extension method: %R", callable);
+                    }
                     return false;
                 } else {
                     PyTypeObject* ct = reinterpret_cast<PyTypeObject*>(Py_TYPE(callable));
@@ -971,7 +981,7 @@ namespace Yapic {
 
                         if (callFn) {
                             bound = callable;
-                            return CallableInfo(callFn, func, bound);
+                            return CallableInfo(callFn, optional, func, bound);
                         }
                     }
                 }

@@ -472,3 +472,11 @@ def test_parametrized_type_inheritance():
 
     assert int_attr == serial_attr
     assert int_init == serial_init
+
+
+def test_builtin_class():
+    (cls, attr, init) = _typing.type_hints(_typing.BuiltinClass)
+
+    assert cls is _typing.BuiltinClass
+    assert attr is None
+    assert init is None

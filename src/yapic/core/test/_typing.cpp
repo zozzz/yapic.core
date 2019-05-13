@@ -3,6 +3,10 @@
 #include <yapic/typing.hpp>
 
 
+class BuiltinClass: public Yapic::Type<BuiltinClass, Yapic::Object> {
+};
+
+
 class TypingModule : public Yapic::Module<TypingModule> {
 public:
     using ModuleRef = Yapic::ModuleRef<TypingModule>;
@@ -16,6 +20,10 @@ public:
         state->typing.Import("typing");
 
         if (!state->Typing.Init(state->typing)) {
+            return 1;
+        }
+
+        if (!BuiltinClass::Register(module)) {
             return 1;
         }
 
