@@ -403,7 +403,7 @@ namespace Yapic {
                 assert(mro.IsValid());
                 assert(PyTuple_CheckExact(mro));
 
-                PyPtr<> resolved = PyTuple_New(PyTuple_GET_SIZE(mro));
+                PyPtr<> resolved = PyTuple_New(PyTuple_GET_SIZE(mro.As<PyTupleObject>()));
                 if (resolved.IsValid()
                     && ResolveMro(type, mro, resolved, vars)
                     && FillMroHoles(mro, resolved)) {
