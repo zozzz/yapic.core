@@ -1,4 +1,7 @@
+import sys
+import gc
 import pytest
+
 from operator import index
 from yapic.core.test import _types
 
@@ -110,3 +113,14 @@ def test_types_freelist():
     for i in range(0, 20):
         t = _types.FR()
         assert isinstance(t, _types.FR)
+
+
+def test_gc():
+    gc.collect()
+
+    before_len = len(gc.get_objects())
+    gco = _types.GCTest()
+    after_len = len(gc.get_objects())
+
+    assert before_len + 2 == after_len
+    assert gco.container["self"] is gco

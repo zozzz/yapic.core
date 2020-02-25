@@ -52,7 +52,6 @@ public:
 
 	static void __dealloc__(Self* self) {
 		Py_CLEAR(self->d);
-		Super::__dealloc__(self);
 	}
 
 	static Py_ssize_t __mp_len__(Self* self) {
@@ -144,6 +143,50 @@ public:
 };
 
 
+class GCTest: public Yapic::Type<GCTest, Yapic::GcObject> {
+	public:
+		static PyObject* __new__() {
+			// GCTest* self = PyObject_GC_New(GCTest, const_cast<PyTypeObject*>(Self::PyType()));
+			GCTest* self = GCTest::Alloc();
+
+			self->container = PyDict_New();
+			if (self->container == NULL) {
+				Py_XDECREF(self);
+				return NULL;
+			}
+
+			if (PyDict_SetItemString(self->container, "self", (PyObject*) self) != 0) {
+				Py_DECREF(self);
+				return NULL;
+			}
+
+			return (PyObject*) self;
+		}
+
+		static int __traverse__(GCTest *self, visitproc visit, void *arg) {
+			Py_VISIT(self->container);
+			return 0;
+		}
+
+		static int __clear__(GCTest *self) {
+			PyObject_GC_UnTrack(self);
+			Py_CLEAR(self->container);
+			return 0;
+		}
+
+		// static inline void __dealloc__(void* self) {
+		// 	printf("GCTest::__dealloc__\n");
+		// }
+
+		Yapic_MEMBERS_BEGIN
+			Yapic_Member(container, T_OBJECT_EX, READONLY, "")
+		Yapic_MEMBERS_END
+
+	private:
+		PyObject* container;
+};
+
+
 class TypesModule : public Yapic::Module<TypesModule> {
 public:
 	static constexpr const char* __name__ = "yapic.core.test._types";
@@ -154,7 +197,8 @@ public:
 			!S::Register(module) ||
 			!Base::Register(module) ||
 			!NumberP::Register(module) ||
-			!FR::Register(module)) {
+			!FR::Register(module) ||
+			!GCTest::Register(module)) {
 			return -1;
 		}
 		return 0;
