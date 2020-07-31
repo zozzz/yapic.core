@@ -93,23 +93,59 @@ namespace Yapic {
             }
 
             PyObject* Resolve() {
+                return Resolve(NULL);
+            }
+
+            PyObject* Resolve(PyObject* extraLocals) {
                 if (IsForwardTuple(decl)) {
                     // YapicTyping_DUMP(decl);
-                    PyObject* locals = PyTuple_GET_ITEM(decl, 2);
+                    // PyObject* locals = PyTuple_GET_ITEM(decl, 2);
+                    PyPtr<> locals(PyTuple_GET_ITEM(decl, 2));
+                    if (locals.IsValid()) {
+                        locals.Incref();
+                    }
+
+                    // YapicTyping_DUMP(locals);
+                    // YapicTyping_DUMP(extraLocals);
+
+                    if (extraLocals && PyDict_Check(extraLocals)) {
+                        if (locals.IsNone()) {
+                            locals = PyDict_New();
+                            if (!locals.IsValid()) {
+                                return NULL;
+                            }
+                        } else {
+                            locals = PyDict_Copy(locals);
+                            if (!locals.IsValid()) {
+                                return NULL;
+                            }
+                        }
+
+                        if (PyDict_Update(locals, extraLocals) != 0) {
+                            return NULL;
+                        }
+                    } else {
+                        if (locals.IsNone()) {
+                            locals.Clear();
+                        }
+                    }
+
+                    // YapicTyping_DUMP(locals);
+
                     PyObject* ev = PyEval_EvalCode(
                         PyTuple_GET_ITEM(decl, 0),
                         PyTuple_GET_ITEM(decl, 1),
-                        locals == Py_None ? NULL : locals);
+                        locals);
 
                     if (ev != NULL) {
-                        PyObject* res = Resolve(ev);
+                        PyObject* res = Resolve(ev, extraLocals);
                         Py_DECREF(ev);
                         return res;
                     } else {
                         return NULL;
                     }
                 } else {
-                    return Resolve(decl);
+                    return Resolve(decl, extraLocals);
                 }
             }
 
@@ -129,9 +165,9 @@ namespace Yapic {
             // }
 
         private:
-            PyObject* Resolve(PyObject* obj) {
+            PyObject* Resolve(PyObject* obj, PyObject* extraLocals) {
                 if (Py_TYPE(this) == Py_TYPE(obj)) {
-                    return reinterpret_cast<ForwardDecl*>(obj)->Resolve();
+                    return reinterpret_cast<ForwardDecl*>(obj)->Resolve(extraLocals);
                 } else {
                     PyPtr<PyTupleObject> args = PyObject_GetAttr(obj, __args__);
                     if (args.IsValid()) {
@@ -139,7 +175,7 @@ namespace Yapic {
                         PyPtr<PyTupleObject> newArgs = PyTuple_New(l);
 
                         for (Py_ssize_t i = 0; i < l; ++i) {
-                            PyPtr<> arg = Resolve(PyTuple_GET_ITEM(args, i));
+                            PyPtr<> arg = Resolve(PyTuple_GET_ITEM(args, i), extraLocals);
                             if (arg) {
                                 PyTuple_SET_ITEM(newArgs, i, arg.Steal());
                             } else {
