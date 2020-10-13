@@ -30,9 +30,9 @@ namespace Yapic {
         public:
             friend Typing;
 
-            inline static PyTypeObject* NewType() {
+            inline static PyHeapTypeObject* NewType() {
                 static PyType_Slot slots[] = {
-                    {Py_tp_dealloc, reinterpret_cast<void*>(__dealloc__)},
+                    {Py_tp_finalize, reinterpret_cast<void*>(__finalize__)},
                     {Py_tp_repr, reinterpret_cast<void*>(__repr__)},
                     {Py_tp_call, reinterpret_cast<void*>(__call__)},
                     {0, 0}
@@ -42,11 +42,15 @@ namespace Yapic {
                     "yapic.core.ForwardDecl",
                     sizeof(ForwardDecl),
                     0,
-                    0,
+                    Py_TPFLAGS_DEFAULT,
                     slots
                 };
 
-                return (PyTypeObject*)PyType_FromSpec(&spec);
+                auto type = (PyHeapTypeObject*)PyType_FromSpec(&spec);
+                if (type) {
+                    type->ht_type.tp_new = NULL;
+                }
+                return type;
             }
 
             // static const PyTypeObject Type;
@@ -67,12 +71,11 @@ namespace Yapic {
                 return self->Resolve();
             }
 
-            static void __dealloc__(ForwardDecl* self) {
+            static void __finalize__(ForwardDecl* self) {
                 Py_CLEAR(self->expr);
                 Py_CLEAR(self->decl);
                 Py_CLEAR(self->__args__);
                 Py_CLEAR(self->copy_with);
-                Py_TYPE(self)->tp_free((PyObject*)self);
             }
 
             static PyObject* __repr__(ForwardDecl* self) {
@@ -336,7 +339,7 @@ namespace Yapic {
 
             inline bool IsForwardDecl(PyObject* object) {
                 assert(object != NULL);
-                return Py_TYPE(object) == ForwardDeclType;
+                return Py_TYPE(object) == (PyTypeObject*) ForwardDeclType;
             }
 
             inline bool IsTypeVar(PyObject* object) {
@@ -660,9 +663,10 @@ namespace Yapic {
 
         private:
             PyObject* NewForwardDecl(PyObject* expr, PyObject* decl) {
-                assert((ForwardDeclType->tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);
+                assert((ForwardDeclType->ht_type.tp_flags & Py_TPFLAGS_READY) == Py_TPFLAGS_READY);
 
-                ForwardDecl* self = (ForwardDecl*) ForwardDeclType->tp_alloc(ForwardDeclType, ForwardDeclType->tp_basicsize);
+                PyTypeObject* fwdType = (PyTypeObject*) ForwardDeclType;
+                ForwardDecl* self = (ForwardDecl*) fwdType->tp_alloc(fwdType, fwdType->tp_basicsize);
                 if (self != NULL) {
                     self->expr = expr;
                     self->decl = decl;
@@ -913,11 +917,11 @@ namespace Yapic {
 
             PyObject* SubstType(PyObject* value, PyObject* type, PyObject* vars, PyObject* locals) {
                 bool hasFwd = false;
-                PyObject* res = _SubstType(value, type, vars, locals, &hasFwd);
-                if (res != NULL && hasFwd && !IsForwardDecl(res)) {
+                PyPtr<> res = _SubstType(value, type, vars, locals, &hasFwd);
+                if (res.IsValid() && hasFwd && !IsForwardDecl(res)) {
                     return NewForwardDecl(res, res);
                 } else {
-                    return res;
+                    return res.Steal();
                 }
             }
 
@@ -1189,7 +1193,7 @@ namespace Yapic {
             PyObject* ForwardRef;
             PyObject* TypeVar;
             PyObject* MethodWrapperType;
-            PyTypeObject* ForwardDeclType;
+            PyHeapTypeObject* ForwardDeclType;
 
             PyObject* __origin__;
             PyObject* __args__;
