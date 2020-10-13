@@ -72,6 +72,7 @@ namespace Yapic {
                 Py_CLEAR(self->decl);
                 Py_CLEAR(self->__args__);
                 Py_CLEAR(self->copy_with);
+                Py_TYPE(self)->tp_free((PyObject*)self);
             }
 
             static PyObject* __repr__(ForwardDecl* self) {

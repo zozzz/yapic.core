@@ -82,8 +82,8 @@ template<typename O = PyObject>
 class PyPtr: public _PyPtr<O> {
 public:
 	using _PyPtr<O>::_PyPtr;
-	inline PyPtr() { this->_var = reinterpret_cast<O*>(Py_None); Py_INCREF(Py_None); }
-	inline PyPtr(PyObject* var) { this->_var = reinterpret_cast<O*>(var); }
+	inline PyPtr(): _PyPtr<O>::_PyPtr() { }
+	inline PyPtr(PyObject* var): _PyPtr<O>::_PyPtr(reinterpret_cast<O*>(var)) {  }
 
 
 	inline operator O* () const { return (O*) this->_var; }
