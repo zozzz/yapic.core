@@ -290,7 +290,7 @@ class Module {
 #if PY_VERSION_HEX >= 0x03090000
 		static inline const PyModuleDef_Slot* __slots__() {
 			static const PyModuleDef_Slot slots[] = {
-				{Py_mod_exec, Self::__exec__},
+				{Py_mod_exec, reinterpret_cast<void*&>(Self::__exec__)},
 				{0, NULL}
 			};
 			return slots;
