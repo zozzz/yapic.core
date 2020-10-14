@@ -20,11 +20,8 @@ public:
 	static const int Error = 42;
 
 	// XXX: constructor not needed, because module state allocator 0-ing every byte
-	inline void Free() {
-		if (ref != NULL) {
-			Py_CLEAR(ref);
-		}
-	}
+	inline void Free() { Py_CLEAR(ref); }
+	inline PyObject* Ref() const { return ref; }
 
 	inline operator PyObject* () { assert(ref != NULL); return ref; }
 	inline bool Eq(PyObject* other) const { return ref == other; }
@@ -218,7 +215,21 @@ class Module {
 		VarsList* __vars; // state variable
 
 		static inline Self* State() {
-			return State(Self::Instance());
+			return Self::_State();
+		}
+
+		static inline Self*& _State() {
+			static Self* state = NULL;
+			return state;
+		}
+
+		static inline PyObject* Instance() {
+			return _Instance();
+		}
+
+		static inline PyObject*& _Instance() {
+			static PyObject* instance = NULL;
+			return instance;
 		}
 
 		static inline Self* State(PyObject* module) {
@@ -227,12 +238,13 @@ class Module {
 			return state;
 		}
 
-		static inline PyObject* Instance() {
-			PyObject* module = PyState_FindModule(const_cast<PyModuleDef*>(Self::Definition()));
-			assert(module != NULL);
-			return module;
+#if PY_VERSION_HEX >= 0x03090000
+		static inline PyObject* Create() {
+			// this assert is happen when, using same names on derived module class name
+			assert(Self::Definition()->m_base.m_index == 0);
+			return PyModuleDef_Init(const_cast<PyModuleDef*>(Self::Definition()));
 		}
-
+#else
 		static inline PyObject* Create() {
 			// this assert is happen when, using same names on derived module class name
 			assert(Self::Definition()->m_base.m_index == 0);
@@ -242,18 +254,15 @@ class Module {
 				return NULL;
 			}
 			PyState_AddModule(module, const_cast<PyModuleDef*>(Self::Definition()));
-			State(module)->__vars = new VarsList();
-			try {
-				if (Self::__init__(module, State(module)) == -1) {
-					Py_DECREF(module);
-					return NULL;
-				}
-			} catch (...) {
+
+			if (Self::__exec__(module) == 0) {
+				return module;
+			} else {
 				Py_DECREF(module);
 				return NULL;
 			}
-			return module;
 		}
+#endif
 
 		static const PyModuleDef* Definition() {
 			static const PyModuleDef def = {
@@ -262,7 +271,11 @@ class Module {
 				Self::__doc__,
 				sizeof(Self),
 				const_cast<PyMethodDef*>(Self::__methods__()),
-				0,
+#if PY_VERSION_HEX >= 0x03090000
+					const_cast<PyModuleDef_Slot*>(Self::__slots__()),
+#else
+					0,
+#endif
 				Yapic_GetTypeMethod(Self, __traverse__),
 				Self::__clear__,
 				Yapic_GetTypeMethod(Self, __free__)
@@ -274,7 +287,42 @@ class Module {
 			return NULL;
 		}
 
+#if PY_VERSION_HEX >= 0x03090000
+		static inline const PyModuleDef_Slot* __slots__() {
+			static const PyModuleDef_Slot slots[] = {
+				{Py_mod_exec, Self::__exec__},
+				{0, NULL}
+			};
+			return slots;
+		}
+#endif
+
 		static inline int __init__(PyObject* module, Self* state) {
+			return 0;
+		}
+
+		static inline int __exec__(PyObject* module) {
+			assert(Self::Instance() == NULL);
+			PyObject*& instance = Self::_Instance();
+			instance = module;
+
+			assert(Self::State() == NULL);
+			Self*& state = Self::_State();
+			state = State(module);
+
+			Self::State()->__vars = new VarsList();
+			try {
+				return Self::__init__(module, Self::State());
+			} catch (...) {
+				return -1;
+			}
+		}
+
+		static inline int __traverse__(PyObject* module, visitproc visit, void *arg) {
+			Self* state = State(module);
+			for (auto c : *state->__vars) {
+				Py_VISIT(c->Ref());
+			}
 			return 0;
 		}
 

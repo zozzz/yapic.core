@@ -60,7 +60,7 @@ class ClassBaseName {
 			size_t len = strlen(_name);
 			int nameLen = 0;
 
-			for (int i = len - 1 ; i>= 0 ; --i) {
+			for (size_t i = len - 1 ; i>= 0 ; --i) {
 				if (_name[i] == ':' || _name[i] == ' ') {
 					break;
 				} else {
