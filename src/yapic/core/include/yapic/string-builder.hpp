@@ -192,7 +192,6 @@ struct _StringTraits {
 
 	template<typename Memory, typename Input>
 	static inline void AppendChar(Memory& mem, Input ch) {
-		assert(sizeof(Memory::DT) >= sizeof(Input));
 		*(mem.cursor++) = ch;
 	}
 

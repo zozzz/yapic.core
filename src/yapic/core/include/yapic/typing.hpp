@@ -6,7 +6,7 @@
 #include "./pyptr.hpp"
 
 
-#define YapicTyping_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_Repr(((PyObject*)o)))))
+#define YapicTyping_REPR(o) (((PyObject*)o) == NULL ? "<NULL>" : ((char*) PyUnicode_DATA(PyObject_ASCII(((PyObject*)o)))))
 #define YapicTyping_DUMP(o) printf(#o " = %s\n", YapicTyping_REPR(o))
 
 
@@ -1048,10 +1048,19 @@ namespace Yapic {
                     return NULL;
                 }
 
-                PyObject* annots = PyFunction_GET_ANNOTATIONS(func);
-                if (annots != NULL) {
-                    assert(PyDict_CheckExact(annots));
-                }
+                // version >= 3.10
+                #if PY_VERSION_HEX >= 0x030A0000
+                    // Már tuple nem dict
+                    PyPtr<> annots = PyObject_GetAttr((PyObject*) func, __annotations__);
+                    if (annots.IsNull()) {
+                        return NULL;
+                    }
+                #else
+                    PyObject* annots = PyFunction_GET_ANNOTATIONS(func);
+                    if (annots != NULL) {
+                        assert(PyDict_CheckExact(annots));
+                    }
+                #endif
 
                 PyPtr<PyTupleObject> args;
                 PyPtr<PyTupleObject> keywords;

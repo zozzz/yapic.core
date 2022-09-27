@@ -397,7 +397,7 @@ namespace Yapic {
 					/* tp_basicsize */ 		sizeof(Self),
 					/* tp_itemsize */ 		static_cast<Py_ssize_t>(0),
 					/* tp_dealloc */ 		(destructor) Yapic_GetTypeMethod(Self, __dealloc__),
-					/* tp_print */ 			NULL,
+					/* tp_vectorcall_offset */ 0,
 					/* tp_getattr */ 		Yapic_GetTypeMethod(Self, __getattr__),
 					/* tp_setattr */ 		Yapic_GetTypeMethod(Self, __setattr__),
 					/* tp_as_async */ 		NULL,
