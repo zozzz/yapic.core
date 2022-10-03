@@ -74,7 +74,7 @@ public:
 
 
 template<typename Module>
-class ModuleExc : public _ModuleConst<Module> {
+class ModuleExc : public ModuleVar<Module> {
 public:
 	inline void Define(const char* name, PyObject* base, PyObject* dict) {
 		std::string excName(Module::__name__);
