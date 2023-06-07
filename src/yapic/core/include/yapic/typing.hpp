@@ -1062,6 +1062,17 @@ namespace Yapic {
                     }
                 #endif
 
+                // version >= 3.11
+                #if PY_VERSION_HEX >= 0x030B0000
+                    PyPtr<PyTupleObject> co_varnames(PyCode_GetVarnames(code));
+                #else
+                    PyPtr<PyTupleObject> co_varnames(code->co_varnames);
+                    co_varnames.Incref();
+                #endif
+
+                assert(PyTuple_CheckExact(co_varnames));
+
+
                 PyPtr<PyTupleObject> args;
                 PyPtr<PyTupleObject> keywords;
                 PyObject* defaults;
@@ -1070,8 +1081,7 @@ namespace Yapic {
                 PyObject* argDef;
                 int argcount = code->co_argcount - offset;
                 if (argcount > 0) {
-                    assert(PyTuple_CheckExact(code->co_varnames));
-                    assert(PyTuple_GET_SIZE(code->co_varnames) >= argcount);
+                    assert(PyTuple_GET_SIZE(co_varnames) >= argcount);
 
                     args = PyTuple_New(argcount);
                     if (args.IsNull()) {
@@ -1081,7 +1091,7 @@ namespace Yapic {
                     defaults = PyFunction_GET_DEFAULTS(func);
                     if (defaults == NULL) {
                         for (int i=offset ; i<code->co_argcount ; ++i) {
-                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argName = PyTuple_GET_ITEM(co_varnames, i);
                             argType = ResolveArgumentType(annots, argName, type, vars, globals, locals);
                             if (argType == NULL) {
                                 return NULL;
@@ -1101,7 +1111,7 @@ namespace Yapic {
                         Py_ssize_t defcount = PyTuple_GET_SIZE(defaults);
                         Py_ssize_t defcounter = 0;
                         for (int i=offset ; i<code->co_argcount ; ++i) {
-                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argName = PyTuple_GET_ITEM(co_varnames, i);
                             argDef = (code->co_argcount - defcount <= i
                                 ? PyTuple_GET_ITEM(defaults, defcounter++)
                                 : NULL);
@@ -1125,7 +1135,7 @@ namespace Yapic {
                 }
 
                 if (code->co_kwonlyargcount) {
-                    assert(PyTuple_GET_SIZE(code->co_varnames) >= code->co_kwonlyargcount + code->co_argcount);
+                    assert(PyTuple_GET_SIZE(co_varnames) >= code->co_kwonlyargcount + code->co_argcount);
 
                     keywords = PyTuple_New(code->co_kwonlyargcount);
                     if (keywords.IsNull()) {
@@ -1135,7 +1145,7 @@ namespace Yapic {
                     defaults = PyFunction_GET_KW_DEFAULTS(func);
                     if (defaults == NULL) {
                         for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
-                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argName = PyTuple_GET_ITEM(co_varnames, i);
                             argType = ResolveArgumentType(annots, argName, type, vars, globals, locals);
                             if (argType == NULL) {
                                 return NULL;
@@ -1153,7 +1163,7 @@ namespace Yapic {
                         assert(PyDict_CheckExact(defaults));
 
                         for (int i=code->co_argcount ; i<code->co_kwonlyargcount + code->co_argcount ; i++) {
-                            argName = PyTuple_GET_ITEM(code->co_varnames, i);
+                            argName = PyTuple_GET_ITEM(co_varnames, i);
                             argDef = PyDict_GetItem(defaults, argName);
                             argType = ResolveArgumentType(annots, argName, type, vars, globals, locals);
                             if (argType == NULL) {
